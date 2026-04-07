@@ -72,6 +72,14 @@ def _parse_float(value: Any) -> float | None:
         return None
 
 
+def _sum_floats(*values: Any) -> float | None:
+    parsed = [_parse_float(value) for value in values]
+    present = [value for value in parsed if value is not None]
+    if not present:
+        return None
+    return float(sum(present))
+
+
 def _parse_datetime(value: Any) -> datetime | None:
     if value in (None, ""):
         return None
@@ -164,8 +172,8 @@ def normalize_dataset(dataset: str, records: list[dict[str, Any]], run_id: str) 
                     duration_seconds=duration_seconds,
                     distance_meters=_parse_float(_first(record, "distanceMeters", "distance_meters", "distance")),
                     calories=_parse_float(_first(record, "calories")),
-                    average_hr=_parse_float(_first(record, "averageHR", "average_hr", "avgHeartRate")),
-                    max_hr=_parse_float(_first(record, "maxHR", "max_hr", "maxHeartRate")),
+                    average_hr=_parse_float(_first(record, "averageHR", "average_hr", "avgHeartRate", "avgHr")),
+                    max_hr=_parse_float(_first(record, "maxHR", "max_hr", "maxHeartRate", "maxHr")),
                     training_load=training_load,
                     raw_payload=_json(record),
                 )
@@ -194,20 +202,38 @@ def normalize_dataset(dataset: str, records: list[dict[str, Any]], run_id: str) 
         }
 
         if dataset == "sleep":
+            duration = _parse_float(
+                _first(record, "sleepDurationSeconds", "sleep_duration_seconds", "durationSeconds", "duration")
+            )
+            if duration is None:
+                duration = _sum_floats(
+                    _first(record, "deepSleepSeconds"),
+                    _first(record, "lightSleepSeconds"),
+                    _first(record, "remSleepSeconds"),
+                    _first(record, "awakeSleepSeconds"),
+                )
             wellness.append(
                 WellnessRow(
                     **common,
-                    sleep_duration_seconds=_parse_float(
-                        _first(record, "sleepDurationSeconds", "sleep_duration_seconds", "durationSeconds", "duration")
-                    ),
+                    sleep_duration_seconds=duration,
                 )
             )
         elif dataset == "heart_rate":
             wellness.append(
                 WellnessRow(
                     **common,
-                    resting_hr=_parse_float(_first(record, "restingHeartRate", "resting_heart_rate", "restingHR")),
-                    avg_hr=_parse_float(_first(record, "averageHeartRate", "average_hr", "avgHeartRate")),
+                    resting_hr=_parse_float(
+                        _first(
+                            record,
+                            "restingHeartRate",
+                            "currentDayRestingHeartRate",
+                            "resting_heart_rate",
+                            "restingHR",
+                        )
+                    ),
+                    avg_hr=_parse_float(
+                        _first(record, "averageHeartRate", "average_hr", "avgHeartRate", "minAvgHeartRate")
+                    ),
                 )
             )
         elif dataset == "hrv":
@@ -299,7 +325,7 @@ def _build_rows(data_dir: Path) -> tuple[list[dict[str, Any]], list[dict[str, An
             }
         )
         for artifact in manifest.get("artifacts", []):
-            records = read_records(Path(artifact["stored_path"]))
+            records = read_records(Path(artifact["stored_path"]), dataset=artifact["dataset"])
             activity_rows, wellness_rows = normalize_dataset(artifact["dataset"], records, manifest["run_id"])
             for row in activity_rows:
                 activities[row.record_hash] = row

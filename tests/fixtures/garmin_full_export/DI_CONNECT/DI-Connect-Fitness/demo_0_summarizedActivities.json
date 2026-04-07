@@ -1,0 +1,28 @@
+[
+  {
+    "summarizedActivitiesExport": [
+      {
+        "activityId": 1001,
+        "activityType": "running",
+        "startTimeLocal": 1775005800000,
+        "duration": 2400,
+        "distance": 7000,
+        "calories": 520,
+        "avgHr": 148,
+        "maxHr": 171,
+        "trainingLoad": 52
+      },
+      {
+        "activityId": 1002,
+        "activityType": "running",
+        "startTimeLocal": 1775092200000,
+        "duration": 1800,
+        "distance": 5000,
+        "calories": 390,
+        "avgHr": 144,
+        "maxHr": 168,
+        "trainingLoad": 41
+      }
+    ]
+  }
+]

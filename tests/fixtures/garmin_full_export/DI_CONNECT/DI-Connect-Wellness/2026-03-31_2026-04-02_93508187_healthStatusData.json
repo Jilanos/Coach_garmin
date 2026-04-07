@@ -1,0 +1,28 @@
+[
+  {
+    "calendarDate": "2026-03-31",
+    "metrics": [
+      {
+        "type": "HRV",
+        "value": 72.0
+      },
+      {
+        "type": "HR",
+        "value": 50.0
+      }
+    ]
+  },
+  {
+    "calendarDate": "2026-04-01",
+    "metrics": [
+      {
+        "type": "HRV",
+        "value": 69.0
+      },
+      {
+        "type": "HR",
+        "value": 52.0
+      }
+    ]
+  }
+]

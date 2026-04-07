@@ -23,6 +23,15 @@ py -3 -m venv .venv
 .venv\Scripts\python -m coach_garmin sync import-export --source C:\path\to\garmin-export
 ```
 
+The manual import path now recognizes the first real Garmin Connect export slice directly from the full privacy export:
+
+- `*_summarizedActivities.json` -> `activities`
+- `*_sleepData.json` -> `sleep`
+- `UDSFile_*.json` -> `steps`, `heart_rate`, `stress`
+- `*_healthStatusData.json` -> `hrv`
+
+Chunked Garmin export files are ingested independently and deduplicated downstream in the normalized layer.
+
 3. Initialize Garmin authentication once with local token storage:
 
 ```powershell

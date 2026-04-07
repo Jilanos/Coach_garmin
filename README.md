@@ -23,7 +23,13 @@ py -3 -m venv .venv
 .venv\Scripts\python -m coach_garmin sync import-export --source C:\path\to\garmin-export
 ```
 
-3. Sync directly from Garmin Connect with local token storage:
+3. Initialize Garmin authentication once with local token storage:
+
+```powershell
+.venv\Scripts\python -m coach_garmin auth init --format json
+```
+
+4. Sync directly from Garmin Connect while reusing the same local token storage:
 
 ```powershell
 .venv\Scripts\python -m coach_garmin sync garmin-auth --days 30 --format json
@@ -38,7 +44,7 @@ COACH_GARMIN_GARMIN_PASSWORD=your-password
 
 The authenticated token cache is stored locally under `.local/garmin/garmin_tokens.json` and is ignored by git.
 
-4. Read the latest metrics report:
+5. Read the latest metrics report:
 
 ```powershell
 .venv\Scripts\python -m coach_garmin report latest --format json

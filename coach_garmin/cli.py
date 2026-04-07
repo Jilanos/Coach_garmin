@@ -11,7 +11,7 @@ from coach_garmin.config import (
     DEFAULT_GARMIN_PASSWORD_ENV,
     DEFAULT_GARMIN_TOKENSTORE,
 )
-from coach_garmin.garmin_auth import run_authenticated_sync
+from coach_garmin.garmin_auth import initialize_garmin_auth, run_authenticated_sync
 from coach_garmin.manual_import import run_import_export
 from coach_garmin.storage import default_report_path
 
@@ -50,6 +50,17 @@ def cmd_sync_garmin_auth(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_auth_init(args: argparse.Namespace) -> int:
+    payload = initialize_garmin_auth(
+        tokenstore_path=Path(args.tokenstore),
+        env_file=Path(args.env_file),
+        email_env=args.email_env,
+        password_env=args.password_env,
+    )
+    _print_payload(payload, args.format)
+    return 0
+
+
 def cmd_report_latest(args: argparse.Namespace) -> int:
     report_path = default_report_path(Path(args.data_dir))
     if not report_path.exists():
@@ -67,6 +78,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     sync_parser = subparsers.add_parser("sync", help="Sync or import Garmin data.")
     sync_subparsers = sync_parser.add_subparsers(dest="sync_command")
+
+    auth_parser = subparsers.add_parser("auth", help="Initialize or inspect Garmin authentication.")
+    auth_subparsers = auth_parser.add_subparsers(dest="auth_command")
 
     import_parser = sync_subparsers.add_parser(
         "import-export",
@@ -94,6 +108,17 @@ def build_parser() -> argparse.ArgumentParser:
     auth_parser.add_argument("--format", choices=("text", "json"), default="text")
     auth_parser.set_defaults(func=cmd_sync_garmin_auth)
 
+    init_parser = auth_subparsers.add_parser(
+        "init",
+        help="Initialize or refresh the local Garmin token store without syncing data.",
+    )
+    init_parser.add_argument("--tokenstore", default=str(DEFAULT_GARMIN_TOKENSTORE))
+    init_parser.add_argument("--env-file", default=str(DEFAULT_ENV_FILE))
+    init_parser.add_argument("--email-env", default=DEFAULT_GARMIN_EMAIL_ENV)
+    init_parser.add_argument("--password-env", default=DEFAULT_GARMIN_PASSWORD_ENV)
+    init_parser.add_argument("--format", choices=("text", "json"), default="text")
+    init_parser.set_defaults(func=cmd_auth_init)
+
     report_parser = subparsers.add_parser("report", help="Read derived reports.")
     report_subparsers = report_parser.add_subparsers(dest="report_command")
 
@@ -110,4 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     if not getattr(args, "func", None):
         parser.print_help()
         return 1
-    return int(args.func(args))
+    try:
+        return int(args.func(args))
+    except (RuntimeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from None

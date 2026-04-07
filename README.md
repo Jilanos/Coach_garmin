@@ -7,6 +7,7 @@ Local-first Garmin data foundation for:
 - raw artifact preservation with provenance
 - normalized local storage in DuckDB
 - deterministic running and recovery metrics
+- local coaching chat backed by Ollama and local Garmin-derived signals
 
 ## Quick start
 
@@ -66,4 +67,29 @@ The authenticated token cache is stored locally under `.local/garmin/garmin_toke
 
 ```powershell
 .venv\Scripts\python -m coach_garmin report latest --format json
+```
+
+6. Start the local-first coach chat:
+
+```powershell
+.venv\Scripts\python -m coach_garmin coach chat --goal "Je vise un semi en 1h45"
+```
+
+The coach chat:
+
+- runs in French by default
+- uses Ollama locally with `qwen2.5:7b` by default
+- asks clarification questions when the goal is underspecified
+- reads local metrics, goals, plan persistence, and training history
+- saves a versioned weekly plan under `data/reports/weekly_plan_<timestamp>.json`
+
+## Local-only data hygiene
+
+- Everything under `data/` is intentionally ignored by git and should remain local to the machine.
+- A copied real export can live under `data/sources/garmin-export` for local validation only.
+- Regenerable validation outputs such as `data/validation_real_export` should be treated as disposable local artifacts rather than push-ready project files.
+- To rebuild a real-export validation workspace locally:
+
+```powershell
+.venv\Scripts\python -m coach_garmin sync import-export --source "data/sources/garmin-export" --data-dir "data/validation_real_export" --format json
 ```

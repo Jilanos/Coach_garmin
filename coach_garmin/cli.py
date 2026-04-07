@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+from coach_garmin.coach_chat import run_coach_chat
 from coach_garmin.config import (
     DEFAULT_ENV_FILE,
     DEFAULT_GARMIN_EMAIL_ENV,
@@ -70,6 +71,17 @@ def cmd_report_latest(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_coach_chat(args: argparse.Namespace) -> int:
+    payload = run_coach_chat(
+        data_dir=Path(args.data_dir),
+        goal_text=args.goal,
+        output_func=(lambda _: None) if args.format == "json" else print,
+    )
+    if args.format == "json":
+        _print_payload(payload, args.format)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Coach Garmin local-first data foundation CLI.")
     parser.set_defaults(func=None)
@@ -121,11 +133,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     report_parser = subparsers.add_parser("report", help="Read derived reports.")
     report_subparsers = report_parser.add_subparsers(dest="report_command")
+    coach_parser = subparsers.add_parser("coach", help="Run local-first coaching workflows.")
+    coach_subparsers = coach_parser.add_subparsers(dest="coach_command")
 
     latest_parser = report_subparsers.add_parser("latest", help="Print the latest deterministic metrics report.")
     latest_parser.add_argument("--data-dir", default="data")
     latest_parser.add_argument("--format", choices=("text", "json"), default="text")
     latest_parser.set_defaults(func=cmd_report_latest)
+
+    coach_chat_parser = coach_subparsers.add_parser(
+        "chat",
+        help="Start a local-first coaching chat backed by Ollama and local Garmin data.",
+    )
+    coach_chat_parser.add_argument("--data-dir", default="data")
+    coach_chat_parser.add_argument("--goal")
+    coach_chat_parser.add_argument("--format", choices=("text", "json"), default="text")
+    coach_chat_parser.set_defaults(func=cmd_coach_chat)
     return parser
 
 

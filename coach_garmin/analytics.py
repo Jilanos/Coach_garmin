@@ -174,6 +174,88 @@ def _json(record: dict[str, Any]) -> str:
     return json.dumps(record, sort_keys=True, ensure_ascii=True)
 
 
+def _activity_speed_mps(duration_seconds: float | None, distance_meters: float | None) -> float | None:
+    if duration_seconds in (None, 0) or distance_meters in (None, 0):
+        return None
+    if duration_seconds <= 0 or distance_meters <= 0:
+        return None
+    return distance_meters / duration_seconds
+
+
+def _is_plausible_activity(
+    activity_type: str | None,
+    duration_seconds: float | None,
+    distance_meters: float | None,
+) -> bool:
+    if duration_seconds is not None and duration_seconds <= 0:
+        return False
+    if distance_meters is not None and distance_meters < 0:
+        return False
+    if duration_seconds is not None and duration_seconds > 48 * 3600:
+        return False
+    if distance_meters is not None and distance_meters > 1_000_000:
+        return False
+
+    speed = _activity_speed_mps(duration_seconds, distance_meters)
+    if speed is None:
+        return True
+
+    normalized_type = (activity_type or "").lower()
+    if normalized_type in {"running", "trail_running", "walking", "hiking"}:
+        return 0.5 <= speed <= 8.5
+    if normalized_type in {"cycling", "biking"}:
+        return 1.0 <= speed <= 30.0
+    if normalized_type in {"swimming"}:
+        return 0.2 <= speed <= 3.5
+    return 0.2 <= speed <= 35.0
+
+
+def _looks_like_garmin_summary_units(
+    record: dict[str, Any],
+    duration_seconds: float | None,
+    distance_meters: float | None,
+) -> bool:
+    if duration_seconds is None or distance_meters is None:
+        return False
+
+    speed_hint = _parse_float(_first(record, "avgSpeed", "averageSpeed"))
+    raw_ratio = _activity_speed_mps(duration_seconds, distance_meters)
+    if speed_hint is None or raw_ratio is None:
+        return False
+
+    return abs(raw_ratio - speed_hint) <= max(0.05, abs(speed_hint) * 0.2)
+
+
+def _normalize_activity_measurements(
+    record: dict[str, Any],
+    activity_type: str | None,
+    duration_seconds: float | None,
+    distance_meters: float | None,
+) -> tuple[float | None, float | None]:
+    if _is_plausible_activity(activity_type, duration_seconds, distance_meters):
+        return duration_seconds, distance_meters
+
+    if _looks_like_garmin_summary_units(record, duration_seconds, distance_meters):
+        corrected_duration = duration_seconds / 1000.0
+        corrected_distance = distance_meters / 100.0
+        if _is_plausible_activity(activity_type, corrected_duration, corrected_distance):
+            return corrected_duration, corrected_distance
+
+    if (
+        duration_seconds is not None
+        and distance_meters is not None
+        and duration_seconds > 100_000
+        and distance_meters > 10_000
+        and (_activity_speed_mps(duration_seconds, distance_meters) or 0.0) < 1.0
+    ):
+        corrected_duration = duration_seconds / 100.0
+        corrected_distance = distance_meters / 10.0
+        if _is_plausible_activity(activity_type, corrected_duration, corrected_distance):
+            return corrected_duration, corrected_distance
+
+    return None, None
+
+
 def _record_hash(dataset: str, record: dict[str, Any], *identity_parts: Any) -> str:
     blob = json.dumps(
         {
@@ -205,16 +287,6 @@ def normalize_dataset(
     heart_rate_zone_rows: list[HeartRateZoneRow] = []
     for record in records:
         if dataset == "activities":
-            started_at = _parse_datetime(
-                _first(record, "startTimeLocal", "startTimeGMT", "start_time", "start_at", "beginTimestamp")
-            )
-            activity_date = _parse_date(_first(record, "activityDate", "date", "calendarDate", "summaryDate"))
-            if activity_date is None and started_at is not None:
-                activity_date = started_at.date()
-            duration_seconds = _parse_float(_first(record, "durationSeconds", "duration_seconds", "duration", "elapsedDuration"))
-            training_load = _parse_float(_first(record, "trainingLoad", "training_load", "load"))
-            if training_load is None and duration_seconds is not None:
-                training_load = round(duration_seconds / 60.0, 2)
             activity_id = _first(record, "activityId", "activity_id", "id", "summaryId")
             activity_type = _first(
                 record,
@@ -223,12 +295,35 @@ def normalize_dataset(
                 "activity_type",
                 "sport",
             )
+            started_at = _parse_datetime(
+                _first(record, "startTimeLocal", "startTimeGMT", "start_time", "start_at", "beginTimestamp")
+            )
+            activity_date = _parse_date(_first(record, "activityDate", "date", "calendarDate", "summaryDate"))
+            if activity_date is None and started_at is not None:
+                activity_date = started_at.date()
+            raw_duration_seconds = _parse_float(
+                _first(record, "durationSeconds", "duration_seconds", "duration", "elapsedDuration")
+            )
+            raw_distance_meters = _parse_float(_first(record, "distanceMeters", "distance_meters", "distance"))
+            duration_seconds, distance_meters = _normalize_activity_measurements(
+                record,
+                str(activity_type) if activity_type is not None else None,
+                raw_duration_seconds,
+                raw_distance_meters,
+            )
+            training_load = _parse_float(
+                _first(record, "trainingLoad", "training_load", "activityTrainingLoad", "load")
+            )
+            if duration_seconds is None or distance_meters is None:
+                training_load = None
+            if training_load is None and duration_seconds is not None:
+                training_load = round(duration_seconds / 60.0, 2)
             activity_hash_parts = [
                 str(activity_id) if activity_id is not None else None,
                 started_at.isoformat() if started_at else None,
                 str(activity_type) if activity_type is not None else None,
                 duration_seconds,
-                _parse_float(_first(record, "distanceMeters", "distance_meters", "distance")),
+                distance_meters,
             ]
             activities.append(
                 ActivityRow(
@@ -239,7 +334,7 @@ def normalize_dataset(
                     started_at=started_at.isoformat() if started_at else None,
                     activity_date=activity_date.isoformat() if activity_date else None,
                     duration_seconds=duration_seconds,
-                    distance_meters=_parse_float(_first(record, "distanceMeters", "distance_meters", "distance")),
+                    distance_meters=distance_meters,
                     calories=_parse_float(_first(record, "calories")),
                     average_hr=_parse_float(_first(record, "averageHR", "average_hr", "avgHeartRate", "avgHr")),
                     max_hr=_parse_float(_first(record, "maxHR", "max_hr", "maxHeartRate", "maxHr")),

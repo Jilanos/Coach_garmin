@@ -7,6 +7,7 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+# All local Garmin data, derived reports, and real-export validation copies stay local-only.
 data/
 logics/.cache/
 logics/.cache/hybrid_assist_audit.jsonl

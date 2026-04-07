@@ -1,0 +1,24 @@
+[
+  {
+    "activityId": "run-001",
+    "activityType": "running",
+    "startTimeLocal": "2026-04-01T06:30:00+00:00",
+    "durationSeconds": 2400,
+    "distanceMeters": 7000,
+    "calories": 520,
+    "averageHR": 148,
+    "maxHR": 171,
+    "trainingLoad": 52
+  },
+  {
+    "activityId": "run-002",
+    "activityType": "running",
+    "startTimeLocal": "2026-04-02T06:35:00+00:00",
+    "durationSeconds": 3000,
+    "distanceMeters": 8500,
+    "calories": 610,
+    "averageHR": 151,
+    "maxHR": 175,
+    "trainingLoad": 64
+  }
+]

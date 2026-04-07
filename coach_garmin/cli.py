@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from coach_garmin.config import (
+    DEFAULT_ENV_FILE,
+    DEFAULT_GARMIN_EMAIL_ENV,
+    DEFAULT_GARMIN_LOOKBACK_DAYS,
+    DEFAULT_GARMIN_PASSWORD_ENV,
+    DEFAULT_GARMIN_TOKENSTORE,
+)
+from coach_garmin.garmin_auth import run_authenticated_sync
+from coach_garmin.manual_import import run_import_export
+from coach_garmin.storage import default_report_path
+
+
+def _print_payload(payload: dict[str, object], fmt: str) -> None:
+    if fmt == "json":
+        print(json.dumps(payload, indent=2, ensure_ascii=True))
+        return
+    for key, value in payload.items():
+        print(f"{key}: {value}")
+
+
+def cmd_sync_import_export(args: argparse.Namespace) -> int:
+    payload = run_import_export(
+        source=Path(args.source),
+        data_dir=Path(args.data_dir),
+        run_label=args.run_label,
+    )
+    _print_payload(payload, args.format)
+    return 0
+
+
+def cmd_sync_garmin_auth(args: argparse.Namespace) -> int:
+    payload = run_authenticated_sync(
+        data_dir=Path(args.data_dir),
+        start_date=args.start_date,
+        end_date=args.end_date,
+        days=args.days,
+        run_label=args.run_label,
+        tokenstore_path=Path(args.tokenstore),
+        env_file=Path(args.env_file),
+        email_env=args.email_env,
+        password_env=args.password_env,
+    )
+    _print_payload(payload, args.format)
+    return 0
+
+
+def cmd_report_latest(args: argparse.Namespace) -> int:
+    report_path = default_report_path(Path(args.data_dir))
+    if not report_path.exists():
+        raise SystemExit(f"No report found at {report_path}")
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    _print_payload(payload, args.format)
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Coach Garmin local-first data foundation CLI.")
+    parser.set_defaults(func=None)
+
+    subparsers = parser.add_subparsers(dest="command")
+
+    sync_parser = subparsers.add_parser("sync", help="Sync or import Garmin data.")
+    sync_subparsers = sync_parser.add_subparsers(dest="sync_command")
+
+    import_parser = sync_subparsers.add_parser(
+        "import-export",
+        help="Import a local Garmin export directory or file into raw and normalized stores.",
+    )
+    import_parser.add_argument("--source", required=True)
+    import_parser.add_argument("--data-dir", default="data")
+    import_parser.add_argument("--run-label", default="manual-import")
+    import_parser.add_argument("--format", choices=("text", "json"), default="text")
+    import_parser.set_defaults(func=cmd_sync_import_export)
+
+    auth_parser = sync_subparsers.add_parser(
+        "garmin-auth",
+        help="Fetch Garmin Connect data through an authenticated API session and store raw + normalized outputs locally.",
+    )
+    auth_parser.add_argument("--data-dir", default="data")
+    auth_parser.add_argument("--start-date")
+    auth_parser.add_argument("--end-date")
+    auth_parser.add_argument("--days", type=int, default=DEFAULT_GARMIN_LOOKBACK_DAYS)
+    auth_parser.add_argument("--run-label", default="garmin-auth")
+    auth_parser.add_argument("--tokenstore", default=str(DEFAULT_GARMIN_TOKENSTORE))
+    auth_parser.add_argument("--env-file", default=str(DEFAULT_ENV_FILE))
+    auth_parser.add_argument("--email-env", default=DEFAULT_GARMIN_EMAIL_ENV)
+    auth_parser.add_argument("--password-env", default=DEFAULT_GARMIN_PASSWORD_ENV)
+    auth_parser.add_argument("--format", choices=("text", "json"), default="text")
+    auth_parser.set_defaults(func=cmd_sync_garmin_auth)
+
+    report_parser = subparsers.add_parser("report", help="Read derived reports.")
+    report_subparsers = report_parser.add_subparsers(dest="report_command")
+
+    latest_parser = report_subparsers.add_parser("latest", help="Print the latest deterministic metrics report.")
+    latest_parser.add_argument("--data-dir", default="data")
+    latest_parser.add_argument("--format", choices=("text", "json"), default="text")
+    latest_parser.set_defaults(func=cmd_report_latest)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not getattr(args, "func", None):
+        parser.print_help()
+        return 1
+    return int(args.func(args))

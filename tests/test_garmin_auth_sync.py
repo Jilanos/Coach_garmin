@@ -6,8 +6,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import duckdb
+from garminconnect import (
+    GarminConnectAuthenticationError,
+    GarminConnectTooManyRequestsError,
+)
 
-from coach_garmin.garmin_auth import run_authenticated_sync
+from coach_garmin.garmin_auth import initialize_garmin_auth, run_authenticated_sync
 
 
 class FakeGarminClient:
@@ -81,7 +85,89 @@ class FakeGarminClient:
         ]
 
 
+class RateLimitedGarminClient(FakeGarminClient):
+    def login(self, tokenstore: str | None = None) -> tuple[str | None, str | None]:
+        raise GarminConnectTooManyRequestsError("Cloudflare is blocking this request")
+
+
+class BlockedGarminClient(FakeGarminClient):
+    def login(self, tokenstore: str | None = None) -> tuple[str | None, str | None]:
+        raise GarminConnectAuthenticationError("403 Cloudflare is blocking this request")
+
+
 class GarminAuthSyncTest(unittest.TestCase):
+    def test_initialize_garmin_auth_reports_tokenstore_usage(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env_file = root / ".env.local"
+            env_file.write_text(
+                "\n".join(
+                    [
+                        "COACH_GARMIN_GARMIN_EMAIL=runner@example.com",
+                        "COACH_GARMIN_GARMIN_PASSWORD=secret",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            tokenstore_path = root / ".local" / "garmin" / "garmin_tokens.json"
+
+            summary = initialize_garmin_auth(
+                tokenstore_path=tokenstore_path,
+                env_file=env_file,
+                client_factory=FakeGarminClient,
+            )
+
+            self.assertEqual(summary["source_kind"], "garmin-auth-init")
+            self.assertEqual(summary["tokenstore_path"], str(tokenstore_path.resolve()))
+            self.assertFalse(summary["used_existing_tokenstore"])
+            self.assertTrue(summary["credentials_configured"])
+            self.assertTrue(tokenstore_path.parent.is_dir())
+
+    def test_initialize_garmin_auth_surfaces_rate_limit_cleanly(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env_file = root / ".env.local"
+            env_file.write_text(
+                "\n".join(
+                    [
+                        "COACH_GARMIN_GARMIN_EMAIL=runner@example.com",
+                        "COACH_GARMIN_GARMIN_PASSWORD=secret",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "HTTP 429"):
+                initialize_garmin_auth(
+                    tokenstore_path=root / ".local" / "garmin" / "garmin_tokens.json",
+                    env_file=env_file,
+                    client_factory=RateLimitedGarminClient,
+                )
+
+    def test_initialize_garmin_auth_surfaces_cloudflare_block_cleanly(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env_file = root / ".env.local"
+            env_file.write_text(
+                "\n".join(
+                    [
+                        "COACH_GARMIN_GARMIN_EMAIL=runner@example.com",
+                        "COACH_GARMIN_GARMIN_PASSWORD=secret",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "Cloudflare blocked"):
+                initialize_garmin_auth(
+                    tokenstore_path=root / ".local" / "garmin" / "garmin_tokens.json",
+                    env_file=env_file,
+                    client_factory=BlockedGarminClient,
+                )
+
     def test_authenticated_sync_builds_raw_layers_and_dedupes_on_rerun(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -120,6 +206,7 @@ class GarminAuthSyncTest(unittest.TestCase):
                 summary_one["datasets_seen"],
                 ["activities", "heart_rate", "hrv", "sleep", "steps", "stress"],
             )
+            self.assertFalse(summary_one["used_existing_tokenstore"])
             self.assertEqual(summary_one["artifacts_imported"], 6)
             self.assertEqual(summary_two["artifacts_imported"], 6)
 

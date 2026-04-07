@@ -11,6 +11,7 @@ from coach_garmin.manual_import import run_import_export
 
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "manual_export"
+GARMIN_FULL_EXPORT_DIR = Path(__file__).resolve().parent / "fixtures" / "garmin_full_export"
 
 
 class ManualImportTest(unittest.TestCase):
@@ -53,6 +54,50 @@ class ManualImportTest(unittest.TestCase):
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM sync_runs").fetchone()[0], 1)
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM activities").fetchone()[0], 2)
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM wellness_daily").fetchone()[0], 18)
+                self.assertGreaterEqual(con.execute("SELECT COUNT(*) FROM derived_daily_metrics").fetchone()[0], 2)
+            finally:
+                con.close()
+
+    def test_run_import_export_supports_garmin_native_export_shapes(self) -> None:
+        with TemporaryDirectory() as tmp:
+            data_dir = Path(tmp) / "data"
+            summary = run_import_export(GARMIN_FULL_EXPORT_DIR, data_dir, run_label="garmin-native-export")
+
+            self.assertEqual(summary["artifacts_imported"], 12)
+            self.assertEqual(
+                summary["datasets_seen"],
+                [
+                    "activities",
+                    "acute_load",
+                    "device_raw",
+                    "heart_rate",
+                    "heart_rate_zones",
+                    "hrv",
+                    "profile",
+                    "settings_raw",
+                    "sleep",
+                    "steps",
+                    "stress",
+                    "training_history",
+                ],
+            )
+            self.assertEqual(summary["total_records"], 20)
+
+            report_path = data_dir / "reports" / "latest_metrics.json"
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["latest_day"], "2026-04-02")
+            self.assertIn("load_7d", report["latest_metrics"])
+
+            db_path = data_dir / "normalized" / "coach_garmin.duckdb"
+            con = duckdb.connect(str(db_path))
+            try:
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM sync_runs").fetchone()[0], 1)
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM activities").fetchone()[0], 2)
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM wellness_daily").fetchone()[0], 10)
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM acute_load_daily").fetchone()[0], 2)
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM training_history_daily").fetchone()[0], 2)
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM profile_snapshots").fetchone()[0], 1)
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM heart_rate_zones").fetchone()[0], 1)
                 self.assertGreaterEqual(con.execute("SELECT COUNT(*) FROM derived_daily_metrics").fetchone()[0], 2)
             finally:
                 con.close()

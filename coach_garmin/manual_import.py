@@ -7,8 +7,7 @@ from coach_garmin.contracts import ArtifactRecord, SyncManifest
 from coach_garmin.storage import (
     compute_sha256,
     copy_raw_artifact,
-    detect_dataset,
-    discover_supported_files,
+    discover_supported_artifacts,
     ensure_data_dirs,
     new_run_id,
     now_utc,
@@ -24,31 +23,29 @@ def run_import_export(source: Path, data_dir: Path, run_label: str | None = None
     ensure_data_dirs(data_dir)
     run_id = new_run_id()
     started_at = now_utc()
-    supported_files, unsupported_files = discover_supported_files(source)
-    if not supported_files:
+    supported_artifacts, unsupported_files = discover_supported_artifacts(source)
+    if not supported_artifacts:
         raise ValueError(f"No supported Garmin export files found under {source}")
 
     artifacts: list[ArtifactRecord] = []
     datasets_seen: set[str] = set()
     total_records = 0
 
-    for candidate in supported_files:
-        dataset = detect_dataset(candidate)
-        if dataset is None:
-            continue
-        records = read_records(candidate)
-        stored_path = copy_raw_artifact(candidate, data_dir, run_id, dataset)
+    for artifact in supported_artifacts:
+        records = read_records(artifact.source_path, dataset=artifact.dataset)
+        stored_path = copy_raw_artifact(artifact.source_path, data_dir, run_id, artifact.dataset)
         artifacts.append(
             ArtifactRecord(
-                dataset=dataset,
-                source_path=str(candidate.resolve()),
+                dataset=artifact.dataset,
+                source_path=str(artifact.source_path.resolve()),
                 stored_path=str(stored_path.resolve()),
-                file_format=candidate.suffix.lower().lstrip("."),
+                file_format=artifact.source_path.suffix.lower().lstrip("."),
                 record_count=len(records),
-                content_hash=compute_sha256(candidate),
+                content_hash=compute_sha256(artifact.source_path),
+                metadata={"source_filename": artifact.source_path.name},
             )
         )
-        datasets_seen.add(dataset)
+        datasets_seen.add(artifact.dataset)
         total_records += len(records)
 
     manifest = SyncManifest(

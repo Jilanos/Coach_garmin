@@ -7,7 +7,12 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from garminconnect import Garmin
+from garminconnect import (
+    Garmin,
+    GarminConnectAuthenticationError,
+    GarminConnectConnectionError,
+    GarminConnectTooManyRequestsError,
+)
 
 from coach_garmin.analytics import rebuild_analytics
 from coach_garmin.config import (
@@ -114,6 +119,75 @@ def _date_strings(window: SyncDateRange) -> list[str]:
 def _hash_payload(payload: Any) -> str:
     serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True).encode("utf-8")
     return hashlib.sha256(serialized).hexdigest()
+
+
+def _looks_rate_limited_or_blocked(message: str) -> bool:
+    text = message.lower()
+    return any(
+        marker in text
+        for marker in (
+            "429",
+            "403",
+            "cloudflare",
+            "too many requests",
+            "rate limit",
+            "blocking this request",
+        )
+    )
+
+
+def _authenticate_client(
+    *,
+    tokenstore_path: Path,
+    email: str | None,
+    password: str | None,
+    env_file: Path,
+    email_env: str,
+    password_env: str,
+    client_factory: ClientFactory,
+) -> tuple[GarminClientProtocol, bool]:
+    has_tokenstore = tokenstore_path.exists()
+    if not has_tokenstore and (not email or not password):
+        raise ValueError(
+            "Authenticated Garmin sync requires either an existing tokenstore or both "
+            f"{email_env} and {password_env} in the environment or {env_file}."
+        )
+
+    tokenstore_path.parent.mkdir(parents=True, exist_ok=True)
+    client = client_factory(email, password, _prompt_mfa)
+
+    try:
+        client.login(tokenstore=str(tokenstore_path))
+    except GarminConnectTooManyRequestsError as exc:
+        raise RuntimeError(
+            "Garmin rate limited authentication (HTTP 429). Stop retries, keep the same "
+            f"token store at {tokenstore_path}, and wait before retrying."
+        ) from exc
+    except GarminConnectAuthenticationError as exc:
+        message = str(exc)
+        if _looks_rate_limited_or_blocked(message):
+            raise RuntimeError(
+                "Garmin/Cloudflare blocked this authentication attempt (HTTP 403/429). "
+                "Do not retry in a loop. Wait before retrying and reuse the same token "
+                f"store path: {tokenstore_path}."
+            ) from exc
+        raise RuntimeError(
+            "Garmin authentication failed. If the local token cache is stale, remove "
+            f"{tokenstore_path} and re-run `coach-garmin auth init`. Original error: {message}"
+        ) from exc
+    except GarminConnectConnectionError as exc:
+        message = str(exc)
+        if _looks_rate_limited_or_blocked(message):
+            raise RuntimeError(
+                "Garmin/Cloudflare blocked the login flow before the session could be "
+                "established. Do not keep retrying immediately. Wait, then retry with "
+                f"the same token store path: {tokenstore_path}."
+            ) from exc
+        raise RuntimeError(
+            f"Garmin authentication could not be established because of a connection or session error: {message}"
+        ) from exc
+
+    return client, has_tokenstore
 
 
 def _find_key(payload: Any, candidates: tuple[str, ...]) -> Any:
@@ -286,6 +360,33 @@ def _store_dataset_artifact(
     )
 
 
+def initialize_garmin_auth(
+    tokenstore_path: Path = DEFAULT_GARMIN_TOKENSTORE,
+    env_file: Path = DEFAULT_ENV_FILE,
+    email_env: str = DEFAULT_GARMIN_EMAIL_ENV,
+    password_env: str = DEFAULT_GARMIN_PASSWORD_ENV,
+    client_factory: ClientFactory = _default_client_factory,
+) -> dict[str, Any]:
+    tokenstore_path = tokenstore_path.resolve()
+    email = resolve_secret(email_env, env_file=env_file)
+    password = resolve_secret(password_env, env_file=env_file)
+    _, used_existing_tokenstore = _authenticate_client(
+        tokenstore_path=tokenstore_path,
+        email=email,
+        password=password,
+        env_file=env_file,
+        email_env=email_env,
+        password_env=password_env,
+        client_factory=client_factory,
+    )
+    return {
+        "source_kind": "garmin-auth-init",
+        "tokenstore_path": str(tokenstore_path),
+        "used_existing_tokenstore": used_existing_tokenstore,
+        "credentials_configured": bool(email and password),
+    }
+
+
 def run_authenticated_sync(
     data_dir: Path,
     start_date: str | None = None,
@@ -304,18 +405,18 @@ def run_authenticated_sync(
     tokenstore_path = tokenstore_path.resolve()
     email = resolve_secret(email_env, env_file=env_file)
     password = resolve_secret(password_env, env_file=env_file)
-    has_tokenstore = tokenstore_path.exists()
-    if not has_tokenstore and (not email or not password):
-        raise ValueError(
-            "Authenticated Garmin sync requires either an existing tokenstore or both "
-            f"{email_env} and {password_env} in the environment or {env_file}."
-        )
-
     run_id = new_run_id()
     started_at = now_utc()
     warnings: list[str] = []
-    client = client_factory(email, password, _prompt_mfa)
-    client.login(tokenstore=str(tokenstore_path))
+    client, used_existing_tokenstore = _authenticate_client(
+        tokenstore_path=tokenstore_path,
+        email=email,
+        password=password,
+        env_file=env_file,
+        email_env=email_env,
+        password_env=password_env,
+        client_factory=client_factory,
+    )
 
     day_list = _date_strings(sync_window)
     datasets_payloads: dict[str, dict[str, Any]] = {
@@ -390,6 +491,7 @@ def run_authenticated_sync(
             "start_date": sync_window.start_text,
             "end_date": sync_window.end_text,
             "tokenstore_path": str(tokenstore_path),
+            "used_existing_tokenstore": used_existing_tokenstore,
             "warnings": warnings,
         },
         artifacts=artifacts,
@@ -403,6 +505,7 @@ def run_authenticated_sync(
         "manifest_path": str(manifest_path),
         "source_kind": "garmin-authenticated-api",
         "tokenstore_path": str(tokenstore_path),
+        "used_existing_tokenstore": used_existing_tokenstore,
         "start_date": sync_window.start_text,
         "end_date": sync_window.end_text,
         "artifacts_imported": len(artifacts),

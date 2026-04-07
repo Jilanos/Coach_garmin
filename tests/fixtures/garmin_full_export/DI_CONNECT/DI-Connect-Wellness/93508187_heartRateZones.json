@@ -1,0 +1,14 @@
+[
+  {
+    "trainingMethod": "HR_RESERVE",
+    "restingHeartRateUsed": 51,
+    "lactateThresholdHeartRateUsed": 177,
+    "zone1Floor": 127,
+    "zone2Floor": 142,
+    "zone3Floor": 157,
+    "zone4Floor": 172,
+    "zone5Floor": 187,
+    "maxHeartRateUsed": 202,
+    "sport": "DEFAULT"
+  }
+]

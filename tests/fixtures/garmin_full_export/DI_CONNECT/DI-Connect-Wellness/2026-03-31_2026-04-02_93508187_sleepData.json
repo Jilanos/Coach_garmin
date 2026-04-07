@@ -1,0 +1,16 @@
+[
+  {
+    "calendarDate": "2026-03-31",
+    "deepSleepSeconds": 5400,
+    "lightSleepSeconds": 14400,
+    "remSleepSeconds": 5400,
+    "awakeSleepSeconds": 1800
+  },
+  {
+    "calendarDate": "2026-04-01",
+    "deepSleepSeconds": 4800,
+    "lightSleepSeconds": 15000,
+    "remSleepSeconds": 5400,
+    "awakeSleepSeconds": 1200
+  }
+]

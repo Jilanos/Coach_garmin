@@ -1,0 +1,18 @@
+[
+  {
+    "calendarDate": "2026-03-31",
+    "dailyTrainingLoadAcute": 544,
+    "dailyTrainingLoadChronic": 589,
+    "dailyAcuteChronicWorkloadRatio": 0.92,
+    "acwrPercent": 38,
+    "acwrStatus": "OPTIMAL"
+  },
+  {
+    "calendarDate": "2026-04-01",
+    "dailyTrainingLoadAcute": 571,
+    "dailyTrainingLoadChronic": 602,
+    "dailyAcuteChronicWorkloadRatio": 0.95,
+    "acwrPercent": 41,
+    "acwrStatus": "OPTIMAL"
+  }
+]

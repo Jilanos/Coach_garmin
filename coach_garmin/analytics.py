@@ -48,6 +48,62 @@ class WellnessRow:
     raw_payload: str = ""
 
 
+@dataclass(slots=True)
+class AcuteLoadRow:
+    record_hash: str
+    source_run_id: str
+    metric_date: str | None
+    acute_load: float | None
+    chronic_load: float | None
+    load_ratio: float | None
+    acwr_percent: float | None
+    acwr_status: str | None
+    raw_payload: str
+
+
+@dataclass(slots=True)
+class TrainingHistoryRow:
+    record_hash: str
+    source_run_id: str
+    metric_date: str | None
+    sport: str | None
+    sub_sport: str | None
+    training_status: str | None
+    fitness_trend: str | None
+    feedback_phrase: str | None
+    raw_payload: str
+
+
+@dataclass(slots=True)
+class ProfileRow:
+    record_hash: str
+    source_run_id: str
+    profile_id: str | None
+    display_name: str | None
+    full_name: str | None
+    gender: str | None
+    birth_date: str | None
+    location: str | None
+    raw_payload: str
+
+
+@dataclass(slots=True)
+class HeartRateZoneRow:
+    record_hash: str
+    source_run_id: str
+    sport: str | None
+    training_method: str | None
+    resting_hr: float | None
+    max_hr: float | None
+    lactate_threshold_hr: float | None
+    zone1_floor: float | None
+    zone2_floor: float | None
+    zone3_floor: float | None
+    zone4_floor: float | None
+    zone5_floor: float | None
+    raw_payload: str
+
+
 def _first(record: dict[str, Any], *keys: str) -> Any:
     for key in keys:
         current: Any = record
@@ -70,6 +126,14 @@ def _parse_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _sum_floats(*values: Any) -> float | None:
+    parsed = [_parse_float(value) for value in values]
+    present = [value for value in parsed if value is not None]
+    if not present:
+        return None
+    return float(sum(present))
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -123,9 +187,22 @@ def _record_hash(dataset: str, record: dict[str, Any], *identity_parts: Any) -> 
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
-def normalize_dataset(dataset: str, records: list[dict[str, Any]], run_id: str) -> tuple[list[ActivityRow], list[WellnessRow]]:
+def normalize_dataset(
+    dataset: str, records: list[dict[str, Any]], run_id: str
+) -> tuple[
+    list[ActivityRow],
+    list[WellnessRow],
+    list[AcuteLoadRow],
+    list[TrainingHistoryRow],
+    list[ProfileRow],
+    list[HeartRateZoneRow],
+]:
     activities: list[ActivityRow] = []
     wellness: list[WellnessRow] = []
+    acute_load_rows: list[AcuteLoadRow] = []
+    training_history_rows: list[TrainingHistoryRow] = []
+    profile_rows: list[ProfileRow] = []
+    heart_rate_zone_rows: list[HeartRateZoneRow] = []
     for record in records:
         if dataset == "activities":
             started_at = _parse_datetime(
@@ -164,8 +241,8 @@ def normalize_dataset(dataset: str, records: list[dict[str, Any]], run_id: str) 
                     duration_seconds=duration_seconds,
                     distance_meters=_parse_float(_first(record, "distanceMeters", "distance_meters", "distance")),
                     calories=_parse_float(_first(record, "calories")),
-                    average_hr=_parse_float(_first(record, "averageHR", "average_hr", "avgHeartRate")),
-                    max_hr=_parse_float(_first(record, "maxHR", "max_hr", "maxHeartRate")),
+                    average_hr=_parse_float(_first(record, "averageHR", "average_hr", "avgHeartRate", "avgHr")),
+                    max_hr=_parse_float(_first(record, "maxHR", "max_hr", "maxHeartRate", "maxHr")),
                     training_load=training_load,
                     raw_payload=_json(record),
                 )
@@ -194,20 +271,38 @@ def normalize_dataset(dataset: str, records: list[dict[str, Any]], run_id: str) 
         }
 
         if dataset == "sleep":
+            duration = _parse_float(
+                _first(record, "sleepDurationSeconds", "sleep_duration_seconds", "durationSeconds", "duration")
+            )
+            if duration is None:
+                duration = _sum_floats(
+                    _first(record, "deepSleepSeconds"),
+                    _first(record, "lightSleepSeconds"),
+                    _first(record, "remSleepSeconds"),
+                    _first(record, "awakeSleepSeconds"),
+                )
             wellness.append(
                 WellnessRow(
                     **common,
-                    sleep_duration_seconds=_parse_float(
-                        _first(record, "sleepDurationSeconds", "sleep_duration_seconds", "durationSeconds", "duration")
-                    ),
+                    sleep_duration_seconds=duration,
                 )
             )
         elif dataset == "heart_rate":
             wellness.append(
                 WellnessRow(
                     **common,
-                    resting_hr=_parse_float(_first(record, "restingHeartRate", "resting_heart_rate", "restingHR")),
-                    avg_hr=_parse_float(_first(record, "averageHeartRate", "average_hr", "avgHeartRate")),
+                    resting_hr=_parse_float(
+                        _first(
+                            record,
+                            "restingHeartRate",
+                            "currentDayRestingHeartRate",
+                            "resting_heart_rate",
+                            "restingHR",
+                        )
+                    ),
+                    avg_hr=_parse_float(
+                        _first(record, "averageHeartRate", "average_hr", "avgHeartRate", "minAvgHeartRate")
+                    ),
                 )
             )
         elif dataset == "hrv":
@@ -265,8 +360,129 @@ def normalize_dataset(dataset: str, records: list[dict[str, Any]], run_id: str) 
                     recovery_time_hours=recovery_time_hours,
                 )
             )
+        elif dataset == "acute_load":
+            acute_date = _parse_date(_first(record, "calendarDate", "date", "timestamp"))
+            acute_load_rows.append(
+                AcuteLoadRow(
+                    record_hash=_record_hash("acute_load", {}, acute_date.isoformat() if acute_date else None),
+                    source_run_id=run_id,
+                    metric_date=acute_date.isoformat() if acute_date else None,
+                    acute_load=_parse_float(_first(record, "dailyTrainingLoadAcute", "acuteLoad")),
+                    chronic_load=_parse_float(_first(record, "dailyTrainingLoadChronic", "chronicLoad")),
+                    load_ratio=_parse_float(_first(record, "dailyAcuteChronicWorkloadRatio", "acwr", "loadRatio")),
+                    acwr_percent=_parse_float(_first(record, "acwrPercent")),
+                    acwr_status=(
+                        str(_first(record, "acwrStatus", "status"))
+                        if _first(record, "acwrStatus", "status") is not None
+                        else None
+                    ),
+                    raw_payload=_json(record),
+                )
+            )
+        elif dataset == "training_history":
+            history_date = _parse_date(_first(record, "calendarDate", "date", "timestamp"))
+            training_history_rows.append(
+                TrainingHistoryRow(
+                    record_hash=_record_hash(
+                        "training_history",
+                        {},
+                        history_date.isoformat() if history_date else None,
+                        _first(record, "sport"),
+                        _first(record, "subSport"),
+                    ),
+                    source_run_id=run_id,
+                    metric_date=history_date.isoformat() if history_date else None,
+                    sport=str(_first(record, "sport")) if _first(record, "sport") is not None else None,
+                    sub_sport=str(_first(record, "subSport")) if _first(record, "subSport") is not None else None,
+                    training_status=(
+                        str(_first(record, "trainingStatus")) if _first(record, "trainingStatus") is not None else None
+                    ),
+                    fitness_trend=(
+                        str(_first(record, "fitnessLevelTrend"))
+                        if _first(record, "fitnessLevelTrend") is not None
+                        else None
+                    ),
+                    feedback_phrase=(
+                        str(_first(record, "trainingStatus2FeedbackPhrase"))
+                        if _first(record, "trainingStatus2FeedbackPhrase") is not None
+                        else None
+                    ),
+                    raw_payload=_json(record),
+                )
+            )
+        elif dataset == "profile":
+            profile_rows.append(
+                ProfileRow(
+                    record_hash=_record_hash(
+                        "profile",
+                        {},
+                        _first(record, "profileId", "userProfileId", "id"),
+                        _first(record, "displayName", "fullName"),
+                    ),
+                    source_run_id=run_id,
+                    profile_id=(
+                        str(_first(record, "profileId", "userProfileId", "id"))
+                        if _first(record, "profileId", "userProfileId", "id") is not None
+                        else None
+                    ),
+                    display_name=(
+                        str(_first(record, "displayName", "profileName"))
+                        if _first(record, "displayName", "profileName") is not None
+                        else None
+                    ),
+                    full_name=str(_first(record, "fullName")) if _first(record, "fullName") is not None else None,
+                    gender=str(_first(record, "gender")) if _first(record, "gender") is not None else None,
+                    birth_date=(
+                        _parse_date(_first(record, "birthDate", "dob")).isoformat()
+                        if _parse_date(_first(record, "birthDate", "dob"))
+                        else None
+                    ),
+                    location=(
+                        str(_first(record, "location", "country", "timeZone", "timeZoneUnitDTO.timeZone"))
+                        if _first(record, "location", "country", "timeZone", "timeZoneUnitDTO.timeZone") is not None
+                        else None
+                    ),
+                    raw_payload=_json(record),
+                )
+            )
+        elif dataset == "heart_rate_zones":
+            heart_rate_zone_rows.append(
+                HeartRateZoneRow(
+                    record_hash=_record_hash(
+                        "heart_rate_zones",
+                        {},
+                        _first(record, "sport", "activityType"),
+                        _first(record, "trainingMethod"),
+                    ),
+                    source_run_id=run_id,
+                    sport=(
+                        str(_first(record, "sport", "activityType"))
+                        if _first(record, "sport", "activityType") is not None
+                        else None
+                    ),
+                    training_method=(
+                        str(_first(record, "trainingMethod")) if _first(record, "trainingMethod") is not None else None
+                    ),
+                    resting_hr=_parse_float(_first(record, "restingHeartRateUsed", "restingHeartRate")),
+                    max_hr=_parse_float(_first(record, "maxHeartRateUsed", "maxHeartRate")),
+                    lactate_threshold_hr=_parse_float(_first(record, "lactateThresholdHeartRateUsed")),
+                    zone1_floor=_parse_float(_first(record, "zone1Floor")),
+                    zone2_floor=_parse_float(_first(record, "zone2Floor")),
+                    zone3_floor=_parse_float(_first(record, "zone3Floor")),
+                    zone4_floor=_parse_float(_first(record, "zone4Floor")),
+                    zone5_floor=_parse_float(_first(record, "zone5Floor")),
+                    raw_payload=_json(record),
+                )
+            )
 
-    return activities, wellness
+    return (
+        activities,
+        wellness,
+        acute_load_rows,
+        training_history_rows,
+        profile_rows,
+        heart_rate_zone_rows,
+    )
 
 
 def _load_manifests(data_dir: Path) -> list[dict[str, Any]]:
@@ -279,9 +495,23 @@ def _load_manifests(data_dir: Path) -> list[dict[str, Any]]:
     ]
 
 
-def _build_rows(data_dir: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+def _build_rows(
+    data_dir: Path,
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
     activities: dict[str, ActivityRow] = {}
     wellness: dict[str, WellnessRow] = {}
+    acute_load_rows: dict[str, AcuteLoadRow] = {}
+    training_history_rows: dict[str, TrainingHistoryRow] = {}
+    profile_rows: dict[str, ProfileRow] = {}
+    heart_rate_zone_rows: dict[str, HeartRateZoneRow] = {}
     sync_runs: list[dict[str, Any]] = []
 
     for manifest in _load_manifests(data_dir):
@@ -299,14 +529,37 @@ def _build_rows(data_dir: Path) -> tuple[list[dict[str, Any]], list[dict[str, An
             }
         )
         for artifact in manifest.get("artifacts", []):
-            records = read_records(Path(artifact["stored_path"]))
-            activity_rows, wellness_rows = normalize_dataset(artifact["dataset"], records, manifest["run_id"])
+            records = read_records(Path(artifact["stored_path"]), dataset=artifact["dataset"])
+            (
+                activity_rows,
+                wellness_rows,
+                acute_rows,
+                history_rows,
+                profile_snapshot_rows,
+                heart_zone_rows,
+            ) = normalize_dataset(artifact["dataset"], records, manifest["run_id"])
             for row in activity_rows:
                 activities[row.record_hash] = row
             for row in wellness_rows:
                 wellness[row.record_hash] = row
+            for row in acute_rows:
+                acute_load_rows[row.record_hash] = row
+            for row in history_rows:
+                training_history_rows[row.record_hash] = row
+            for row in profile_snapshot_rows:
+                profile_rows[row.record_hash] = row
+            for row in heart_zone_rows:
+                heart_rate_zone_rows[row.record_hash] = row
 
-    return sync_runs, [asdict(row) for row in activities.values()], [asdict(row) for row in wellness.values()]
+    return (
+        sync_runs,
+        [asdict(row) for row in activities.values()],
+        [asdict(row) for row in wellness.values()],
+        [asdict(row) for row in acute_load_rows.values()],
+        [asdict(row) for row in training_history_rows.values()],
+        [asdict(row) for row in profile_rows.values()],
+        [asdict(row) for row in heart_rate_zone_rows.values()],
+    )
 
 
 def _ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
@@ -382,6 +635,70 @@ def _ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
         )
         """
     )
+    con.execute(
+        """
+        CREATE OR REPLACE TABLE acute_load_daily (
+            record_hash VARCHAR,
+            source_run_id VARCHAR,
+            metric_date DATE,
+            acute_load DOUBLE,
+            chronic_load DOUBLE,
+            load_ratio DOUBLE,
+            acwr_percent DOUBLE,
+            acwr_status VARCHAR,
+            raw_payload VARCHAR
+        )
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TABLE training_history_daily (
+            record_hash VARCHAR,
+            source_run_id VARCHAR,
+            metric_date DATE,
+            sport VARCHAR,
+            sub_sport VARCHAR,
+            training_status VARCHAR,
+            fitness_trend VARCHAR,
+            feedback_phrase VARCHAR,
+            raw_payload VARCHAR
+        )
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TABLE profile_snapshots (
+            record_hash VARCHAR,
+            source_run_id VARCHAR,
+            profile_id VARCHAR,
+            display_name VARCHAR,
+            full_name VARCHAR,
+            gender VARCHAR,
+            birth_date DATE,
+            location VARCHAR,
+            raw_payload VARCHAR
+        )
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TABLE heart_rate_zones (
+            record_hash VARCHAR,
+            source_run_id VARCHAR,
+            sport VARCHAR,
+            training_method VARCHAR,
+            resting_hr DOUBLE,
+            max_hr DOUBLE,
+            lactate_threshold_hr DOUBLE,
+            zone1_floor DOUBLE,
+            zone2_floor DOUBLE,
+            zone3_floor DOUBLE,
+            zone4_floor DOUBLE,
+            zone5_floor DOUBLE,
+            raw_payload VARCHAR
+        )
+        """
+    )
 
 
 def _insert_rows(
@@ -389,6 +706,10 @@ def _insert_rows(
     sync_runs: list[dict[str, Any]],
     activities: list[dict[str, Any]],
     wellness: list[dict[str, Any]],
+    acute_load_rows: list[dict[str, Any]],
+    training_history_rows: list[dict[str, Any]],
+    profile_rows: list[dict[str, Any]],
+    heart_rate_zone_rows: list[dict[str, Any]],
 ) -> None:
     if sync_runs:
         con.executemany(
@@ -452,6 +773,82 @@ def _insert_rows(
                     row["raw_payload"],
                 )
                 for row in wellness
+            ],
+        )
+    if acute_load_rows:
+        con.executemany(
+            "INSERT INTO acute_load_daily VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    row["record_hash"],
+                    row["source_run_id"],
+                    row["metric_date"],
+                    row["acute_load"],
+                    row["chronic_load"],
+                    row["load_ratio"],
+                    row["acwr_percent"],
+                    row["acwr_status"],
+                    row["raw_payload"],
+                )
+                for row in acute_load_rows
+            ],
+        )
+    if training_history_rows:
+        con.executemany(
+            "INSERT INTO training_history_daily VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    row["record_hash"],
+                    row["source_run_id"],
+                    row["metric_date"],
+                    row["sport"],
+                    row["sub_sport"],
+                    row["training_status"],
+                    row["fitness_trend"],
+                    row["feedback_phrase"],
+                    row["raw_payload"],
+                )
+                for row in training_history_rows
+            ],
+        )
+    if profile_rows:
+        con.executemany(
+            "INSERT INTO profile_snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    row["record_hash"],
+                    row["source_run_id"],
+                    row["profile_id"],
+                    row["display_name"],
+                    row["full_name"],
+                    row["gender"],
+                    row["birth_date"],
+                    row["location"],
+                    row["raw_payload"],
+                )
+                for row in profile_rows
+            ],
+        )
+    if heart_rate_zone_rows:
+        con.executemany(
+            "INSERT INTO heart_rate_zones VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    row["record_hash"],
+                    row["source_run_id"],
+                    row["sport"],
+                    row["training_method"],
+                    row["resting_hr"],
+                    row["max_hr"],
+                    row["lactate_threshold_hr"],
+                    row["zone1_floor"],
+                    row["zone2_floor"],
+                    row["zone3_floor"],
+                    row["zone4_floor"],
+                    row["zone5_floor"],
+                    row["raw_payload"],
+                )
+                for row in heart_rate_zone_rows
             ],
         )
 
@@ -594,13 +991,30 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
 
 
 def rebuild_analytics(data_dir: Path) -> dict[str, Any]:
-    sync_runs, activities_rows, wellness_rows = _build_rows(data_dir)
+    (
+        sync_runs,
+        activities_rows,
+        wellness_rows,
+        acute_load_rows,
+        training_history_rows,
+        profile_rows,
+        heart_rate_zone_rows,
+    ) = _build_rows(data_dir)
     db_path = default_db_path(data_dir)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(db_path))
     try:
         _ensure_schema(con)
-        _insert_rows(con, sync_runs, activities_rows, wellness_rows)
+        _insert_rows(
+            con,
+            sync_runs,
+            activities_rows,
+            wellness_rows,
+            acute_load_rows,
+            training_history_rows,
+            profile_rows,
+            heart_rate_zone_rows,
+        )
         metrics_rows, report = compute_metrics(activities_rows, wellness_rows)
         if metrics_rows:
             con.executemany(
@@ -633,6 +1047,10 @@ def rebuild_analytics(data_dir: Path) -> dict[str, Any]:
         "sync_runs": len(sync_runs),
         "activity_rows": len(activities_rows),
         "wellness_rows": len(wellness_rows),
+        "acute_load_rows": len(acute_load_rows),
+        "training_history_rows": len(training_history_rows),
+        "profile_rows": len(profile_rows),
+        "heart_rate_zone_rows": len(heart_rate_zone_rows),
         "metric_rows": len(metrics_rows),
         "latest_day": report.get("latest_day"),
     }

@@ -1,0 +1,30 @@
+[
+  {
+    "calendarDate": "2026-03-31",
+    "totalSteps": 11400,
+    "restingHeartRate": 49,
+    "minAvgHeartRate": 61,
+    "allDayStress": {
+      "aggregatorList": [
+        {
+          "type": "TOTAL",
+          "averageStressLevel": 23
+        }
+      ]
+    }
+  },
+  {
+    "calendarDate": "2026-04-01",
+    "totalSteps": 9800,
+    "restingHeartRate": 50,
+    "minAvgHeartRate": 63,
+    "allDayStress": {
+      "aggregatorList": [
+        {
+          "type": "TOTAL",
+          "averageStressLevel": 27
+        }
+      ]
+    }
+  }
+]

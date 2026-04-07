@@ -12,3 +12,11 @@ index:
 hybrid_assist:
   audit_log: logics/.cache/hybrid_assist_audit.jsonl
   measurement_log: logics/.cache/hybrid_assist_measurements.jsonl
+  env_file: .env.local
+  provider_health_path: logics/.cache/provider_health.json
+  providers:
+    readiness_cooldown_seconds: 300
+    gemini:
+      enabled: true
+      base_url: https://generativelanguage.googleapis.com/v1beta
+      model: gemini-2.0-flash

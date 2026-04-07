@@ -63,12 +63,25 @@ class ManualImportTest(unittest.TestCase):
             data_dir = Path(tmp) / "data"
             summary = run_import_export(GARMIN_FULL_EXPORT_DIR, data_dir, run_label="garmin-native-export")
 
-            self.assertEqual(summary["artifacts_imported"], 6)
+            self.assertEqual(summary["artifacts_imported"], 12)
             self.assertEqual(
                 summary["datasets_seen"],
-                ["activities", "heart_rate", "hrv", "sleep", "steps", "stress"],
+                [
+                    "activities",
+                    "acute_load",
+                    "device_raw",
+                    "heart_rate",
+                    "heart_rate_zones",
+                    "hrv",
+                    "profile",
+                    "settings_raw",
+                    "sleep",
+                    "steps",
+                    "stress",
+                    "training_history",
+                ],
             )
-            self.assertEqual(summary["total_records"], 12)
+            self.assertEqual(summary["total_records"], 20)
 
             report_path = data_dir / "reports" / "latest_metrics.json"
             report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -81,6 +94,10 @@ class ManualImportTest(unittest.TestCase):
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM sync_runs").fetchone()[0], 1)
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM activities").fetchone()[0], 2)
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM wellness_daily").fetchone()[0], 10)
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM acute_load_daily").fetchone()[0], 2)
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM training_history_daily").fetchone()[0], 2)
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM profile_snapshots").fetchone()[0], 1)
+                self.assertEqual(con.execute("SELECT COUNT(*) FROM heart_rate_zones").fetchone()[0], 1)
                 self.assertGreaterEqual(con.execute("SELECT COUNT(*) FROM derived_daily_metrics").fetchone()[0], 2)
             finally:
                 con.close()

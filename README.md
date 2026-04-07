@@ -32,6 +32,15 @@ The manual import path now recognizes the first real Garmin Connect export slice
 
 Chunked Garmin export files are ingested independently and deduplicated downstream in the normalized layer.
 
+Extended coverage now includes:
+
+- `MetricsAcuteTrainingLoad_*.json` -> `acute_load` (normalized)
+- `TrainingHistory_*.json` -> `training_history` (normalized)
+- `user_profile.json` / social-profile files -> `profile` (normalized)
+- `*_heartRateZones.json` -> `heart_rate_zones` (normalized)
+- device backup/content files -> `device_raw` (raw-only)
+- user settings/reminders files -> `settings_raw` (raw-only)
+
 3. Initialize Garmin authentication once with local token storage:
 
 ```powershell

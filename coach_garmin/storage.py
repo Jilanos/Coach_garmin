@@ -150,6 +150,13 @@ def read_records(path: Path, dataset: str | None = None) -> list[dict[str, Any]]
             )
         return transformed
 
+    if dataset in {"acute_load", "training_history", "heart_rate_zones"}:
+        return _flatten_dict_records(payload)
+
+    if dataset in {"profile", "device_raw", "settings_raw"}:
+        rows = _flatten_dict_records(payload)
+        return rows if rows else [{"raw_payload": payload}]
+
     return _flatten_dict_records(payload)
 
 
@@ -204,6 +211,18 @@ def detect_datasets(path: Path) -> list[str]:
         return ["sleep"]
     if "healthstatusdata" in lower_name:
         return ["hrv"]
+    if "metricsacutetrainingload" in lower_name:
+        return ["acute_load"]
+    if "traininghistory" in lower_name:
+        return ["training_history"]
+    if "user_profile" in lower_name or "social-profile" in lower_name:
+        return ["profile"]
+    if "heartratezones" in lower_name:
+        return ["heart_rate_zones"]
+    if "devicebackups" in lower_name or "devicesandcontent" in lower_name:
+        return ["device_raw"]
+    if "user_settings" in lower_name or "user_reminders" in lower_name:
+        return ["settings_raw"]
     if "udsfile" in lower_name:
         return ["heart_rate", "steps", "stress"]
     return []

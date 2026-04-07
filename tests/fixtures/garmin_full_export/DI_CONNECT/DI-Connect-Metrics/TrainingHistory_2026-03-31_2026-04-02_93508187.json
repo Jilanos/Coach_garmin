@@ -1,0 +1,18 @@
+[
+  {
+    "calendarDate": "2026-03-31",
+    "sport": "RUNNING",
+    "subSport": "GENERIC",
+    "trainingStatus": "MAINTAINING",
+    "fitnessLevelTrend": "NO_CHANGE",
+    "trainingStatus2FeedbackPhrase": "MAINTAINING_2"
+  },
+  {
+    "calendarDate": "2026-04-01",
+    "sport": "RUNNING",
+    "subSport": "GENERIC",
+    "trainingStatus": "PRODUCTIVE",
+    "fitnessLevelTrend": "IMPROVING",
+    "trainingStatus2FeedbackPhrase": "PRODUCTIVE_1"
+  }
+]

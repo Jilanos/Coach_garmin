@@ -32,7 +32,7 @@ class CoachChatSession:
         history_context = self.toolkit.history()
         existing_goal = self.toolkit.goals()["goal_profile"]
         if isinstance(existing_goal, dict):
-            goal_profile = {**existing_goal, **goal_profile}
+            goal_profile = self._merge_existing_goal_profile(existing_goal, goal_profile)
 
         questions_asked: list[str] = []
         for key, question, parser in self._clarification_questions(goal_profile, history_context):
@@ -388,6 +388,19 @@ class CoachChatSession:
             "available_days_per_week": CoachChatSession._extract_days_per_week(goal_lower),
         }
         return {key: value for key, value in profile.items() if value not in (None, "")}
+
+    @staticmethod
+    def _merge_existing_goal_profile(existing_goal: dict[str, Any], new_goal_profile: dict[str, Any]) -> dict[str, Any]:
+        carryable_keys = {
+            "available_days_per_week",
+            "constraints",
+            "current_weekly_distance_km",
+        }
+        merged = dict(new_goal_profile)
+        for key in carryable_keys:
+            if key not in merged and existing_goal.get(key) not in (None, ""):
+                merged[key] = existing_goal[key]
+        return merged
 
     @staticmethod
     def _clarification_questions(goal_profile: dict[str, Any], history_context: dict[str, Any]) -> list[tuple[str, str, Callable[[str], Any]]]:

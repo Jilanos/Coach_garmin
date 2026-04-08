@@ -396,6 +396,31 @@ class CoachChatTest(unittest.TestCase):
             self.assertEqual(summary["goal_profile"]["target_event"], "10 km")
             self.assertEqual(summary["questions_asked"][0], "Tu mentionnes plusieurs objectifs. Lequel est prioritaire pour les 6 a 12 prochaines semaines ?")
 
+    def test_new_goal_does_not_inherit_previous_target_event(self) -> None:
+        with TemporaryDirectory() as tmp:
+            data_dir = Path(tmp) / "data"
+            run_import_export(GARMIN_FULL_EXPORT_DIR, data_dir, run_label="coach-fixture")
+            toolkit = LocalCoachToolkit(data_dir=data_dir)
+            toolkit.goals(
+                {
+                    "goal_text": "ancien 10 km",
+                    "target_event": "10 km",
+                    "principal_objective": "10 km",
+                    "available_days_per_week": 4,
+                }
+            )
+            answers = iter(["12", "4", "aucune"])
+
+            summary = run_coach_chat(
+                data_dir=data_dir,
+                goal_text="Je veux simplement reprendre la course durablement sans objectif chrono",
+                input_func=lambda prompt: next(answers),
+                output_func=lambda message: None,
+                llm_client=ShortPlanCoachClient(),
+            )
+
+            self.assertNotEqual(summary["goal_profile"].get("target_event"), "10 km")
+
     def test_cli_coach_chat_json_mode_prints_json_payload(self) -> None:
         buffer = io.StringIO()
         with patch(

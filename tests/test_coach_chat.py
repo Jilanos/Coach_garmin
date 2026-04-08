@@ -139,6 +139,19 @@ class CoachChatTest(unittest.TestCase):
             plan = toolkit.plan({"weekly_plan": [{"day": "Lundi"}]})
             self.assertTrue(Path(plan["path"]).is_file())
 
+    def test_local_coach_toolkit_metrics_tolerates_missing_optional_tables(self) -> None:
+        with TemporaryDirectory() as tmp:
+            data_dir = Path(tmp) / "data"
+            run_import_export(Path("tests/fixtures/manual_export"), data_dir, run_label="coach-minimal")
+
+            metrics = LocalCoachToolkit(data_dir=data_dir).metrics()
+
+            self.assertTrue(metrics["db_available"])
+            self.assertIsNotNone(metrics["latest_day"])
+            self.assertNotIn("acute_load", metrics)
+            self.assertNotIn("training_status", metrics)
+            self.assertNotIn("heart_rate_zones", metrics)
+
     def test_run_coach_chat_asks_clarifications_and_saves_weekly_plan(self) -> None:
         with TemporaryDirectory() as tmp:
             data_dir = Path(tmp) / "data"
@@ -165,6 +178,7 @@ class CoachChatTest(unittest.TestCase):
             assert fake_client.prompt_bundle is not None
             self.assertIn("metrics", fake_client.prompt_bundle)
             self.assertIn("history", fake_client.prompt_bundle)
+            self.assertIn("analysis", fake_client.prompt_bundle)
             self.assertIn("Signaux utilises", "\n".join(outputs))
 
             saved_plan = json.loads(Path(summary["plan_path"]).read_text(encoding="utf-8"))
@@ -242,6 +256,52 @@ class CoachChatTest(unittest.TestCase):
             self.assertAlmostEqual(history["long_run_km"], 4.93, places=2)
             self.assertEqual(history["recent_activities"][0]["training_load"], 71.31999206542969)
 
+    def test_local_coach_toolkit_analysis_derives_benchmark_and_paces(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source_dir = root / "source"
+            source_dir.mkdir(parents=True, exist_ok=True)
+            (source_dir / "activities.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "activityId": 1,
+                            "activityType": "running",
+                            "startTimeLocal": 1775546807000.0,
+                            "duration": 2520.0,
+                            "distance": 10000.0,
+                            "activityTrainingLoad": 95.0,
+                        },
+                        {
+                            "activityId": 2,
+                            "activityType": "running",
+                            "startTimeLocal": 1774946807000.0,
+                            "duration": 5400.0,
+                            "distance": 18000.0,
+                            "activityTrainingLoad": 130.0,
+                        },
+                    ],
+                    ensure_ascii=True,
+                ),
+                encoding="utf-8",
+            )
+            data_dir = root / "data"
+            run_import_export(source_dir, data_dir, run_label="analysis-benchmark")
+
+            analysis = LocalCoachToolkit(data_dir=data_dir).analysis(
+                {
+                    "target_event": "10 km",
+                    "principal_objective": "10 km",
+                    "constraints": "fin de periostite sensible",
+                }
+            )
+
+            self.assertTrue(analysis["available"])
+            self.assertEqual(analysis["recommended_benchmark"]["event"], "10 km")
+            self.assertEqual(analysis["training_phase"], "return-from-injury")
+            self.assertIsNotNone(analysis["inferred_paces"]["threshold_pace_min_per_km"])
+            self.assertIn("10 km", analysis["analysis_summary"])
+
     def test_history_prioritizes_running_rows_for_running_coach_metrics(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -316,6 +376,25 @@ class CoachChatTest(unittest.TestCase):
 
             saturday = next(item for item in summary["weekly_plan"] if item["day"] == "Samedi")
             self.assertLessEqual(saturday["duration_minutes"], 132)
+
+    def test_run_coach_chat_asks_for_principal_objective_when_multiple_goals_exist(self) -> None:
+        with TemporaryDirectory() as tmp:
+            data_dir = Path(tmp) / "data"
+            run_import_export(GARMIN_FULL_EXPORT_DIR, data_dir, run_label="coach-fixture")
+            answers = iter(["10 km", "12", "4", "aucune"])
+            outputs: list[str] = []
+
+            summary = run_coach_chat(
+                data_dir=data_dir,
+                goal_text="Je vise un 10 km en sub 40 et un marathon en sub 3h30",
+                input_func=lambda prompt: next(answers),
+                output_func=outputs.append,
+                llm_client=ShortPlanCoachClient(),
+            )
+
+            self.assertEqual(summary["goal_profile"]["principal_objective"], "10 km")
+            self.assertEqual(summary["goal_profile"]["target_event"], "10 km")
+            self.assertEqual(summary["questions_asked"][0], "Tu mentionnes plusieurs objectifs. Lequel est prioritaire pour les 6 a 12 prochaines semaines ?")
 
     def test_cli_coach_chat_json_mode_prints_json_payload(self) -> None:
         buffer = io.StringIO()

@@ -52,8 +52,12 @@ class OllamaCoachClient:
                     {
                         "role": "system",
                         "content": (
-                            "You are a cautious French running coach. "
-                            "Use only the provided local context. Do not give medical advice. "
+                            "You are a cautious but direct French running coach. "
+                            "Use only the provided local context. "
+                            "Start with an analytical assessment before the weekly plan. "
+                            "Use pace guidance when the context contains sufficient benchmark evidence. "
+                            "If the data is weak, say so explicitly and fall back to effort guidance. "
+                            "Do not give medical advice. "
                             "Respond with valid JSON only."
                         ),
                     },
@@ -88,21 +92,27 @@ class OllamaCoachClient:
     @staticmethod
     def _build_prompt(prompt_bundle: dict[str, Any]) -> str:
         schema = {
-            "coach_summary": "short summary in French",
+            "coach_summary": "direct analytical summary in French grounded in the provided history and goal",
             "signals_used": ["list of local signals mentioned in the recommendation"],
             "weekly_plan": [
                 {
-                    "day": "Monday",
-                    "session_title": "Recovery run",
-                    "objective": "why this session exists",
+                    "day": "Lundi",
+                    "session_title": "Seuil 3 x 8 min autour de 4:12-4:20/km",
+                    "objective": "why this session exists with direct coaching logic",
                     "duration_minutes": 45,
-                    "intensity": "Z1-Z2 or RPE label",
-                    "notes": "recovery or execution notes",
+                    "intensity": "Z3-Z4 or pace range",
+                    "notes": "execution details with reps, blocks, pace, or fallback effort guidance",
                 }
             ],
         }
         return (
             "Build a one-week running plan in French from the provided local context.\n"
+            "The answer must feel individualized, analytical, and specific.\n"
+            "Do not produce a generic motivational summary.\n"
+            "You must explain the current training phase, benchmark evidence, and tradeoff between goal ambition and recent history.\n"
+            "If multiple goals exist, follow the principal objective in the context.\n"
+            "When pace inference is available, use it directly in sessions.\n"
+            "When pace inference is weak, explicitly say that and use RPE guidance.\n"
             "Return valid JSON only.\n"
             f"Required schema: {json.dumps(schema, ensure_ascii=True)}\n"
             f"Context: {json.dumps(prompt_bundle, ensure_ascii=True)}"

@@ -80,7 +80,10 @@ The coach chat:
 - runs in French by default
 - uses Ollama locally with `qwen2.5:7b` by default
 - asks clarification questions when the goal is underspecified
-- reads local metrics, goals, plan persistence, and training history
+- reads local metrics, goals, benchmark performances, and training history
+- analyzes `21j / 90j / 365j` windows before prescribing the week
+- chooses a principal objective when several goals are given
+- uses pace-aware workout guidance when recent race or benchmark evidence is available
 - saves a versioned weekly plan under `data/reports/weekly_plan_<timestamp>.json`
 
 ## Local-only data hygiene

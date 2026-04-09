@@ -42,7 +42,11 @@ def run_import_export(source: Path, data_dir: Path, run_label: str | None = None
                 file_format=artifact.source_path.suffix.lower().lstrip("."),
                 record_count=len(records),
                 content_hash=compute_sha256(artifact.source_path),
-                metadata={"source_filename": artifact.source_path.name},
+                metadata={
+                    "source_filename": artifact.source_path.name,
+                    "source_parent": artifact.source_path.parent.name,
+                    "source_kind": "manual-export",
+                },
             )
         )
         datasets_seen.add(artifact.dataset)
@@ -71,5 +75,6 @@ def run_import_export(source: Path, data_dir: Path, run_label: str | None = None
         "datasets_seen": sorted(datasets_seen),
         "total_records": total_records,
         "unsupported_files": [str(path) for path in unsupported_files],
+        "coverage_report_path": analytics_summary.get("coverage_report_path"),
         "analytics": analytics_summary,
     }

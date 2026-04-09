@@ -9,7 +9,14 @@ from typing import Any
 
 import duckdb
 
-from coach_garmin.storage import default_db_path, default_report_path, read_records, write_json
+from coach_garmin.storage import (
+    default_coverage_report_path,
+    default_db_path,
+    default_report_path,
+    read_records,
+    write_json,
+)
+from coach_garmin.coverage import build_feature_coverage_report
 
 
 @dataclass(slots=True)
@@ -27,6 +34,31 @@ class ActivityRow:
     max_hr: float | None
     training_load: float | None
     raw_payload: str
+
+
+@dataclass(slots=True)
+class ArtifactInventoryRow:
+    source_run_id: str
+    dataset: str
+    source_path: str
+    stored_path: str
+    file_format: str
+    source_filename: str
+    record_count: int
+    content_hash: str
+    source_kind: str | None
+    raw_metadata: str
+
+
+@dataclass(slots=True)
+class NormalizedLineageRow:
+    record_hash: str
+    source_run_id: str
+    dataset: str
+    source_filename: str
+    source_path: str
+    stored_path: str
+    content_hash: str
 
 
 @dataclass(slots=True)
@@ -600,6 +632,8 @@ def _build_rows(
     list[dict[str, Any]],
     list[dict[str, Any]],
     list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
 ]:
     activities: dict[str, ActivityRow] = {}
     wellness: dict[str, WellnessRow] = {}
@@ -607,6 +641,8 @@ def _build_rows(
     training_history_rows: dict[str, TrainingHistoryRow] = {}
     profile_rows: dict[str, ProfileRow] = {}
     heart_rate_zone_rows: dict[str, HeartRateZoneRow] = {}
+    artifact_inventory_rows: list[ArtifactInventoryRow] = []
+    lineage_rows: list[NormalizedLineageRow] = []
     sync_runs: list[dict[str, Any]] = []
 
     for manifest in _load_manifests(data_dir):
@@ -624,7 +660,25 @@ def _build_rows(
             }
         )
         for artifact in manifest.get("artifacts", []):
-            records = read_records(Path(artifact["stored_path"]), dataset=artifact["dataset"])
+            stored_path = Path(artifact["stored_path"])
+            source_path = artifact.get("source_path") or artifact.get("stored_path") or ""
+            metadata = artifact.get("metadata", {})
+            source_filename = metadata.get("source_filename") if isinstance(metadata, dict) else None
+            artifact_inventory_rows.append(
+                ArtifactInventoryRow(
+                    source_run_id=manifest["run_id"],
+                    dataset=artifact["dataset"],
+                    source_path=source_path,
+                    stored_path=str(stored_path),
+                    file_format=str(artifact.get("file_format", "")),
+                    source_filename=str(source_filename or stored_path.name),
+                    record_count=int(artifact.get("record_count", 0) or 0),
+                    content_hash=str(artifact.get("content_hash", "")),
+                    source_kind=manifest["source_kind"],
+                    raw_metadata=json.dumps(metadata, sort_keys=True, ensure_ascii=True),
+                )
+            )
+            records = read_records(stored_path, dataset=artifact["dataset"])
             (
                 activity_rows,
                 wellness_rows,
@@ -645,15 +699,36 @@ def _build_rows(
                 profile_rows[row.record_hash] = row
             for row in heart_zone_rows:
                 heart_rate_zone_rows[row.record_hash] = row
+            lineage_rows.extend(
+                NormalizedLineageRow(
+                    record_hash=row.record_hash,
+                    source_run_id=manifest["run_id"],
+                    dataset=artifact["dataset"],
+                    source_filename=str(source_filename or stored_path.name),
+                    source_path=source_path,
+                    stored_path=str(stored_path),
+                    content_hash=str(artifact.get("content_hash", "")),
+                )
+                for row in (
+                    list(activity_rows)
+                    + list(wellness_rows)
+                    + list(acute_rows)
+                    + list(history_rows)
+                    + list(profile_snapshot_rows)
+                    + list(heart_zone_rows)
+                )
+            )
 
     return (
         sync_runs,
+        [asdict(row) for row in artifact_inventory_rows],
         [asdict(row) for row in activities.values()],
         [asdict(row) for row in wellness.values()],
         [asdict(row) for row in acute_load_rows.values()],
         [asdict(row) for row in training_history_rows.values()],
         [asdict(row) for row in profile_rows.values()],
         [asdict(row) for row in heart_rate_zone_rows.values()],
+        [asdict(row) for row in lineage_rows],
     )
 
 
@@ -675,6 +750,22 @@ def _ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
     )
     con.execute(
         """
+        CREATE OR REPLACE TABLE artifact_inventory (
+            source_run_id VARCHAR,
+            dataset VARCHAR,
+            source_path VARCHAR,
+            stored_path VARCHAR,
+            file_format VARCHAR,
+            source_filename VARCHAR,
+            record_count INTEGER,
+            content_hash VARCHAR,
+            source_kind VARCHAR,
+            raw_metadata VARCHAR
+        )
+        """
+    )
+    con.execute(
+        """
         CREATE OR REPLACE TABLE activities (
             record_hash VARCHAR,
             source_run_id VARCHAR,
@@ -689,6 +780,19 @@ def _ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
             max_hr DOUBLE,
             training_load DOUBLE,
             raw_payload VARCHAR
+        )
+        """
+    )
+    con.execute(
+        """
+        CREATE OR REPLACE TABLE normalized_lineage (
+            record_hash VARCHAR,
+            source_run_id VARCHAR,
+            dataset VARCHAR,
+            source_filename VARCHAR,
+            source_path VARCHAR,
+            stored_path VARCHAR,
+            content_hash VARCHAR
         )
         """
     )
@@ -799,12 +903,14 @@ def _ensure_schema(con: duckdb.DuckDBPyConnection) -> None:
 def _insert_rows(
     con: duckdb.DuckDBPyConnection,
     sync_runs: list[dict[str, Any]],
+    artifact_inventory_rows: list[dict[str, Any]],
     activities: list[dict[str, Any]],
     wellness: list[dict[str, Any]],
     acute_load_rows: list[dict[str, Any]],
     training_history_rows: list[dict[str, Any]],
     profile_rows: list[dict[str, Any]],
     heart_rate_zone_rows: list[dict[str, Any]],
+    lineage_rows: list[dict[str, Any]],
 ) -> None:
     if sync_runs:
         con.executemany(
@@ -822,6 +928,25 @@ def _insert_rows(
                     row["total_records"],
                 )
                 for row in sync_runs
+            ],
+        )
+    if artifact_inventory_rows:
+        con.executemany(
+            "INSERT INTO artifact_inventory VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    row["source_run_id"],
+                    row["dataset"],
+                    row["source_path"],
+                    row["stored_path"],
+                    row["file_format"],
+                    row["source_filename"],
+                    row["record_count"],
+                    row["content_hash"],
+                    row["source_kind"],
+                    row["raw_metadata"],
+                )
+                for row in artifact_inventory_rows
             ],
         )
     if activities:
@@ -944,6 +1069,22 @@ def _insert_rows(
                     row["raw_payload"],
                 )
                 for row in heart_rate_zone_rows
+            ],
+        )
+    if lineage_rows:
+        con.executemany(
+            "INSERT INTO normalized_lineage VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    row["record_hash"],
+                    row["source_run_id"],
+                    row["dataset"],
+                    row["source_filename"],
+                    row["source_path"],
+                    row["stored_path"],
+                    row["content_hash"],
+                )
+                for row in lineage_rows
             ],
         )
 
@@ -1088,12 +1229,14 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
 def rebuild_analytics(data_dir: Path) -> dict[str, Any]:
     (
         sync_runs,
+        artifact_inventory_rows,
         activities_rows,
         wellness_rows,
         acute_load_rows,
         training_history_rows,
         profile_rows,
         heart_rate_zone_rows,
+        lineage_rows,
     ) = _build_rows(data_dir)
     db_path = default_db_path(data_dir)
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1103,12 +1246,14 @@ def rebuild_analytics(data_dir: Path) -> dict[str, Any]:
         _insert_rows(
             con,
             sync_runs,
+            artifact_inventory_rows,
             activities_rows,
             wellness_rows,
             acute_load_rows,
             training_history_rows,
             profile_rows,
             heart_rate_zone_rows,
+            lineage_rows,
         )
         metrics_rows, report = compute_metrics(activities_rows, wellness_rows)
         if metrics_rows:
@@ -1136,16 +1281,34 @@ def rebuild_analytics(data_dir: Path) -> dict[str, Any]:
 
     report_path = default_report_path(data_dir)
     write_json(report_path, report)
+    coverage_report = build_feature_coverage_report(
+        sync_runs=sync_runs,
+        artifact_inventory_rows=artifact_inventory_rows,
+        activities_rows=activities_rows,
+        wellness_rows=wellness_rows,
+        acute_load_rows=acute_load_rows,
+        training_history_rows=training_history_rows,
+        profile_rows=profile_rows,
+        heart_rate_zone_rows=heart_rate_zone_rows,
+        lineage_rows=lineage_rows,
+        metrics_rows=metrics_rows,
+        latest_report=report,
+    )
+    coverage_path = default_coverage_report_path(data_dir)
+    write_json(coverage_path, coverage_report)
     return {
         "db_path": str(db_path),
         "report_path": str(report_path),
+        "coverage_report_path": str(coverage_path),
         "sync_runs": len(sync_runs),
+        "artifact_inventory_rows": len(artifact_inventory_rows),
         "activity_rows": len(activities_rows),
         "wellness_rows": len(wellness_rows),
         "acute_load_rows": len(acute_load_rows),
         "training_history_rows": len(training_history_rows),
         "profile_rows": len(profile_rows),
         "heart_rate_zone_rows": len(heart_rate_zone_rows),
+        "lineage_rows": len(lineage_rows),
         "metric_rows": len(metrics_rows),
         "latest_day": report.get("latest_day"),
     }

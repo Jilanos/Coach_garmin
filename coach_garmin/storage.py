@@ -9,7 +9,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from coach_garmin.config import DATASET_ALIASES, DEFAULT_DATA_DIR, DEFAULT_DB_PATH, DEFAULT_REPORT_PATH
+from coach_garmin.config import (
+    DATASET_ALIASES,
+    DEFAULT_COVERAGE_REPORT_PATH,
+    DEFAULT_DATA_DIR,
+    DEFAULT_DB_PATH,
+    DEFAULT_REPORT_PATH,
+)
+from coach_garmin.fit_parser import read_fit_activity_records
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +95,12 @@ def _extract_health_metric(record: dict[str, Any], metric_type: str) -> float | 
 
 
 def read_records(path: Path, dataset: str | None = None) -> list[dict[str, Any]]:
+    if dataset == "activities" and path.suffix.lower() == ".fit":
+        fit_records = read_fit_activity_records(path)
+        if fit_records:
+            return fit_records
+        return []
+
     payload = _load_json_or_csv(path)
     if dataset is None:
         return _flatten_dict_records(payload)
@@ -205,6 +218,8 @@ def detect_datasets(path: Path) -> list[str]:
         return [direct]
 
     lower_name = path.name.lower()
+    if lower_name.endswith(".fit"):
+        return ["activities"]
     if "summarizedactivities" in lower_name:
         return ["activities"]
     if "sleepdata" in lower_name:
@@ -235,19 +250,36 @@ def discover_supported_artifacts(source: Path) -> tuple[list[SupportedArtifact],
             return [], [source]
         return [SupportedArtifact(source_path=source, dataset=dataset) for dataset in datasets], []
 
-    supported: list[SupportedArtifact] = []
+    preferred: dict[tuple[str, str], SupportedArtifact] = {}
     unsupported: list[Path] = []
+
+    def artifact_priority(candidate: Path) -> int:
+        suffix = candidate.suffix.lower()
+        if suffix == ".fit":
+            return 0
+        if suffix == ".json":
+            return 1
+        if suffix == ".csv":
+            return 2
+        return 3
+
     for candidate in sorted(source.rglob("*")):
         if not candidate.is_file():
             continue
-        if candidate.suffix.lower() not in {".json", ".csv"}:
+        if candidate.suffix.lower() not in {".json", ".csv", ".fit"}:
             continue
         datasets = detect_datasets(candidate)
         if datasets:
-            supported.extend(SupportedArtifact(source_path=candidate, dataset=dataset) for dataset in datasets)
+            relative_key = candidate.relative_to(source).with_suffix("").as_posix().lower()
+            for dataset in datasets:
+                key = (relative_key, dataset)
+                supported = SupportedArtifact(source_path=candidate, dataset=dataset)
+                current = preferred.get(key)
+                if current is None or artifact_priority(candidate) < artifact_priority(current.source_path):
+                    preferred[key] = supported
         else:
             unsupported.append(candidate)
-    return supported, unsupported
+    return list(preferred.values()), unsupported
 
 
 def discover_supported_files(source: Path) -> tuple[list[Path], list[Path]]:
@@ -272,3 +304,9 @@ def default_report_path(data_dir: Path) -> Path:
     if data_dir == DEFAULT_DATA_DIR:
         return DEFAULT_REPORT_PATH
     return data_dir / "reports" / "latest_metrics.json"
+
+
+def default_coverage_report_path(data_dir: Path) -> Path:
+    if data_dir == DEFAULT_DATA_DIR:
+        return DEFAULT_COVERAGE_REPORT_PATH
+    return data_dir / "reports" / "feature_coverage.json"

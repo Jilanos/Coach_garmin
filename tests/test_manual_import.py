@@ -4,6 +4,7 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import duckdb
 
@@ -47,6 +48,13 @@ class ManualImportTest(unittest.TestCase):
             self.assertIn("load_7d", report["latest_metrics"])
             self.assertIn("fatigue_flag", report["latest_metrics"])
 
+            coverage_path = data_dir / "reports" / "feature_coverage.json"
+            self.assertTrue(coverage_path.is_file())
+            coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
+            self.assertTrue(coverage["raw"]["artifacts"] >= 10)
+            self.assertTrue(coverage["normalized"]["activities"]["available"])
+            self.assertIn("latest_metrics", coverage["coach"]["available_signals"])
+
             db_path = data_dir / "normalized" / "coach_garmin.duckdb"
             self.assertTrue(db_path.is_file())
             con = duckdb.connect(str(db_path))
@@ -55,6 +63,8 @@ class ManualImportTest(unittest.TestCase):
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM activities").fetchone()[0], 2)
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM wellness_daily").fetchone()[0], 18)
                 self.assertGreaterEqual(con.execute("SELECT COUNT(*) FROM derived_daily_metrics").fetchone()[0], 2)
+                self.assertGreaterEqual(con.execute("SELECT COUNT(*) FROM artifact_inventory").fetchone()[0], 10)
+                self.assertGreaterEqual(con.execute("SELECT COUNT(*) FROM normalized_lineage").fetchone()[0], 18)
             finally:
                 con.close()
 
@@ -88,6 +98,11 @@ class ManualImportTest(unittest.TestCase):
             self.assertEqual(report["latest_day"], "2026-04-02")
             self.assertIn("load_7d", report["latest_metrics"])
 
+            coverage_path = data_dir / "reports" / "feature_coverage.json"
+            coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
+            self.assertGreaterEqual(coverage["raw"]["artifacts"], 12)
+            self.assertTrue(coverage["features"]["derived_daily_metrics"]["available"])
+
             db_path = data_dir / "normalized" / "coach_garmin.duckdb"
             con = duckdb.connect(str(db_path))
             try:
@@ -99,5 +114,64 @@ class ManualImportTest(unittest.TestCase):
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM profile_snapshots").fetchone()[0], 1)
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM heart_rate_zones").fetchone()[0], 1)
                 self.assertGreaterEqual(con.execute("SELECT COUNT(*) FROM derived_daily_metrics").fetchone()[0], 2)
+                self.assertGreaterEqual(con.execute("SELECT COUNT(*) FROM artifact_inventory").fetchone()[0], 12)
+                self.assertGreaterEqual(con.execute("SELECT COUNT(*) FROM normalized_lineage").fetchone()[0], 18)
             finally:
                 con.close()
+
+    def test_run_import_export_prefers_fit_activity_files_over_json_sidecars(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source_dir = root / "source"
+            source_dir.mkdir(parents=True, exist_ok=True)
+            (source_dir / "run.fit").write_bytes(b"FIT")
+            (source_dir / "run.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "activityId": 999,
+                            "activityType": "running",
+                            "startTimeLocal": "2026-04-01T06:30:00+00:00",
+                            "duration": 3600,
+                            "distance": 10000,
+                        }
+                    ],
+                    ensure_ascii=True,
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("coach_garmin.storage.read_fit_activity_records", return_value=[{"activityType": "running", "durationSeconds": 3600, "distanceMeters": 10000, "startTimeLocal": "2026-04-01T06:30:00+00:00"}]) as fit_reader:
+                summary = run_import_export(source_dir, root / "data", run_label="fit-first")
+
+            self.assertEqual(summary["artifacts_imported"], 1)
+            self.assertEqual(summary["datasets_seen"], ["activities"])
+            self.assertEqual(fit_reader.call_count, 2)
+
+    def test_run_import_export_falls_back_to_json_when_fit_is_absent(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source_dir = root / "source"
+            source_dir.mkdir(parents=True, exist_ok=True)
+            (source_dir / "run.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "activityId": 999,
+                            "activityType": "running",
+                            "startTimeLocal": "2026-04-01T06:30:00+00:00",
+                            "duration": 3600,
+                            "distance": 10000,
+                        }
+                    ],
+                    ensure_ascii=True,
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("coach_garmin.storage.read_fit_activity_records") as fit_reader:
+                summary = run_import_export(source_dir, root / "data", run_label="json-fallback")
+
+            self.assertEqual(summary["artifacts_imported"], 1)
+            self.assertEqual(summary["datasets_seen"], ["activities"])
+            fit_reader.assert_not_called()

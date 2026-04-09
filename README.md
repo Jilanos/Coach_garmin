@@ -69,7 +69,13 @@ The authenticated token cache is stored locally under `.local/garmin/garmin_toke
 .venv\Scripts\python -m coach_garmin report latest --format json
 ```
 
-6. Start the local-first coach chat:
+6. Read the latest feature coverage report:
+
+```powershell
+.venv\Scripts\python -m coach_garmin report coverage --format json
+```
+
+7. Start the local-first coach chat:
 
 ```powershell
 .venv\Scripts\python -m coach_garmin coach chat --goal "Je vise un semi en 1h45"
@@ -81,6 +87,7 @@ The coach chat:
 - uses Ollama locally with `qwen2.5:7b` by default
 - asks clarification questions when the goal is underspecified
 - reads local metrics, goals, benchmark performances, and training history
+- consumes the coverage report to avoid overclaiming missing signals
 - analyzes `21j / 90j / 365j` windows before prescribing the week
 - chooses a principal objective when several goals are given
 - uses pace-aware workout guidance when recent race or benchmark evidence is available

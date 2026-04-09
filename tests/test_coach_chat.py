@@ -126,6 +126,8 @@ class CoachChatTest(unittest.TestCase):
             self.assertEqual(metrics["latest_day"], "2026-04-02")
             self.assertIn("load_7d", metrics["latest_metrics"])
             self.assertIn("acute_load", metrics)
+            self.assertIn("coverage", metrics)
+            self.assertTrue(metrics["coverage"]["normalized"]["activities"]["available"])
 
             goals = toolkit.goals({"goal_text": "semi 1h45", "target_event": "semi-marathon"})
             self.assertTrue(Path(goals["path"]).is_file())
@@ -179,11 +181,13 @@ class CoachChatTest(unittest.TestCase):
             self.assertIn("metrics", fake_client.prompt_bundle)
             self.assertIn("history", fake_client.prompt_bundle)
             self.assertIn("analysis", fake_client.prompt_bundle)
+            self.assertIn("coverage", fake_client.prompt_bundle)
             self.assertIn("Signaux utilises", "\n".join(outputs))
 
             saved_plan = json.loads(Path(summary["plan_path"]).read_text(encoding="utf-8"))
             self.assertEqual(len(saved_plan["weekly_plan"]), 7)
             self.assertIn("load_7d", saved_plan["signals_used"])
+            self.assertIn("coverage_snapshot", saved_plan)
 
     def test_run_coach_chat_surfaces_provider_errors(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -301,6 +305,7 @@ class CoachChatTest(unittest.TestCase):
             self.assertEqual(analysis["training_phase"], "return-from-injury")
             self.assertIsNotNone(analysis["inferred_paces"]["threshold_pace_min_per_km"])
             self.assertIn("10 km", analysis["analysis_summary"])
+            self.assertIn("coverage", analysis)
 
     def test_history_prioritizes_running_rows_for_running_coach_metrics(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -433,6 +438,20 @@ class CoachChatTest(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         payload = json.loads(buffer.getvalue())
         self.assertEqual(payload["plan_path"], "data/reports/weekly_plan_20260407.json")
+
+    def test_cli_report_coverage_json_mode_prints_json_payload(self) -> None:
+        with TemporaryDirectory() as tmp:
+            data_dir = Path(tmp) / "data"
+            run_import_export(GARMIN_FULL_EXPORT_DIR, data_dir, run_label="coach-fixture")
+            buffer = io.StringIO()
+
+            with redirect_stdout(buffer):
+                exit_code = main(["report", "coverage", "--format", "json", "--data-dir", str(data_dir)])
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(buffer.getvalue())
+        self.assertIn("raw", payload)
+        self.assertIn("normalized", payload)
 
 
 if __name__ == "__main__":

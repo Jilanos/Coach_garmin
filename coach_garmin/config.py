@@ -5,6 +5,7 @@ from pathlib import Path
 DEFAULT_DATA_DIR = Path("data")
 DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "normalized" / "coach_garmin.duckdb"
 DEFAULT_REPORT_PATH = DEFAULT_DATA_DIR / "reports" / "latest_metrics.json"
+DEFAULT_COVERAGE_REPORT_PATH = DEFAULT_DATA_DIR / "reports" / "feature_coverage.json"
 DEFAULT_LOCAL_DIR = Path(".local")
 DEFAULT_GARMIN_TOKENSTORE = DEFAULT_LOCAL_DIR / "garmin" / "garmin_tokens.json"
 DEFAULT_GARMIN_LOOKBACK_DAYS = 30

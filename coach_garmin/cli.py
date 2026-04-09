@@ -14,7 +14,7 @@ from coach_garmin.config import (
 )
 from coach_garmin.garmin_auth import initialize_garmin_auth, run_authenticated_sync
 from coach_garmin.manual_import import run_import_export
-from coach_garmin.storage import default_report_path
+from coach_garmin.storage import default_coverage_report_path, default_report_path
 
 
 def _print_payload(payload: dict[str, object], fmt: str) -> None:
@@ -66,6 +66,15 @@ def cmd_report_latest(args: argparse.Namespace) -> int:
     report_path = default_report_path(Path(args.data_dir))
     if not report_path.exists():
         raise SystemExit(f"No report found at {report_path}")
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    _print_payload(payload, args.format)
+    return 0
+
+
+def cmd_report_coverage(args: argparse.Namespace) -> int:
+    report_path = default_coverage_report_path(Path(args.data_dir))
+    if not report_path.exists():
+        raise SystemExit(f"No coverage report found at {report_path}")
     payload = json.loads(report_path.read_text(encoding="utf-8"))
     _print_payload(payload, args.format)
     return 0
@@ -140,6 +149,14 @@ def build_parser() -> argparse.ArgumentParser:
     latest_parser.add_argument("--data-dir", default="data")
     latest_parser.add_argument("--format", choices=("text", "json"), default="text")
     latest_parser.set_defaults(func=cmd_report_latest)
+
+    coverage_parser = report_subparsers.add_parser(
+        "coverage",
+        help="Print the latest feature coverage report.",
+    )
+    coverage_parser.add_argument("--data-dir", default="data")
+    coverage_parser.add_argument("--format", choices=("text", "json"), default="text")
+    coverage_parser.set_defaults(func=cmd_report_coverage)
 
     coach_chat_parser = coach_subparsers.add_parser(
         "chat",

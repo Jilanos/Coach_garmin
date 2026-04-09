@@ -223,11 +223,18 @@ class GarminAuthSyncTest(unittest.TestCase):
             self.assertEqual(report["latest_day"], "2026-04-03")
             self.assertIn("load_7d", report["latest_metrics"])
 
+            coverage_path = data_dir / "reports" / "feature_coverage.json"
+            self.assertTrue(coverage_path.is_file())
+            coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
+            self.assertTrue(coverage["raw"]["artifacts"] >= 6)
+
             db_path = data_dir / "normalized" / "coach_garmin.duckdb"
             con = duckdb.connect(str(db_path))
             try:
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM sync_runs").fetchone()[0], 2)
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM activities").fetchone()[0], 2)
                 self.assertEqual(con.execute("SELECT COUNT(*) FROM wellness_daily").fetchone()[0], 15)
+                self.assertGreaterEqual(con.execute("SELECT COUNT(*) FROM artifact_inventory").fetchone()[0], 12)
+                self.assertGreaterEqual(con.execute("SELECT COUNT(*) FROM normalized_lineage").fetchone()[0], 17)
             finally:
                 con.close()

@@ -356,7 +356,7 @@ def _store_dataset_artifact(
         file_format="json",
         record_count=len(payload.get("data", [])),
         content_hash=_hash_payload(payload),
-        metadata=range_metadata,
+        metadata={**range_metadata, "source_filename": filename, "source_kind": "garmin-authenticated-api"},
     )
 
 
@@ -512,5 +512,6 @@ def run_authenticated_sync(
         "datasets_seen": sorted(datasets_seen),
         "total_records": total_records,
         "warnings": warnings,
+        "coverage_report_path": analytics_summary.get("coverage_report_path"),
         "analytics": analytics_summary,
     }

@@ -53,6 +53,7 @@ class CoachChatSession:
             "metrics": metrics_context,
             "history": history_context,
             "analysis": analysis_context,
+            "coverage": metrics_context.get("coverage", {}),
             "suggested_plan_skeleton": plan_skeleton,
             "generation_rules": {
                 "language": "fr",
@@ -62,6 +63,7 @@ class CoachChatSession:
                 "must_be_direct_and_analytical": True,
                 "must_analyze_before_planning": True,
                 "must_use_pace_when_confident": True,
+                "must_respect_signal_coverage": True,
             },
         }
         plan_response = self.llm_client.generate_weekly_plan(prompt_bundle)
@@ -73,6 +75,7 @@ class CoachChatSession:
             "metrics_snapshot": metrics_context,
             "history_snapshot": history_context,
             "analysis_snapshot": analysis_context,
+            "coverage_snapshot": metrics_context.get("coverage", {}),
             "coach_summary": self._choose_coach_summary(
                 plan_response.get("coach_summary", ""),
                 analysis_context,

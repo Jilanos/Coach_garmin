@@ -9,7 +9,13 @@ from typing import Any
 import duckdb
 
 from coach_garmin.config import DEFAULT_GOAL_PROFILE_PATH
-from coach_garmin.storage import default_db_path, default_report_path, ensure_data_dirs, write_json
+from coach_garmin.storage import (
+    default_coverage_report_path,
+    default_db_path,
+    default_report_path,
+    ensure_data_dirs,
+    write_json,
+)
 
 
 STANDARD_BENCHMARKS: tuple[tuple[str, float, float], ...] = (
@@ -27,15 +33,21 @@ class LocalCoachToolkit:
     def metrics(self) -> dict[str, Any]:
         ensure_data_dirs(self.data_dir)
         report_path = default_report_path(self.data_dir)
+        coverage_path = default_coverage_report_path(self.data_dir)
         report: dict[str, Any] = {}
         if report_path.exists():
             report = json.loads(report_path.read_text(encoding="utf-8"))
+        coverage: dict[str, Any] = {}
+        if coverage_path.exists():
+            coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
 
         payload: dict[str, Any] = {
             "report_path": str(report_path),
+            "coverage_report_path": str(coverage_path),
             "latest_day": report.get("latest_day"),
             "latest_metrics": report.get("latest_metrics", {}),
             "supported_metrics": report.get("supported_metrics", {}),
+            "coverage": coverage,
         }
 
         db_path = default_db_path(self.data_dir)
@@ -132,6 +144,7 @@ class LocalCoachToolkit:
                 "available": False,
                 "recent_activity_count": 0,
                 "recent_activities": [],
+                "coverage": self._load_coverage_report(),
             }
 
         con = duckdb.connect(str(db_path), read_only=True)
@@ -146,6 +159,7 @@ class LocalCoachToolkit:
                     "available": False,
                     "recent_activity_count": 0,
                     "recent_activities": [],
+                    "coverage": self._load_coverage_report(),
                 }
 
             latest_date = self._coerce_date(latest_day)
@@ -193,6 +207,7 @@ class LocalCoachToolkit:
             "total_duration_minutes": round(total_duration, 1),
             "long_run_km": round(long_run_km, 2),
             "recent_activities": recent_activities,
+            "coverage": self._load_coverage_report(),
         }
 
     def analysis(self, goal_profile: dict[str, Any]) -> dict[str, Any]:
@@ -207,6 +222,7 @@ class LocalCoachToolkit:
                 "recommended_benchmark": None,
                 "inferred_paces": {},
                 "training_phase": "insufficient-data",
+                "coverage": self._load_coverage_report(),
                 "analysis_summary": "Pas assez de donnees locales pour produire une analyse historique fiable.",
             }
 
@@ -223,11 +239,12 @@ class LocalCoachToolkit:
                     or goal_profile.get("target_event"),
                     "windows": {},
                     "benchmarks": [],
-                    "recommended_benchmark": None,
-                    "inferred_paces": {},
-                    "training_phase": "insufficient-data",
-                    "analysis_summary": "Aucune activite n'est disponible pour analyser l'historique.",
-                }
+                "recommended_benchmark": None,
+                "inferred_paces": {},
+                "training_phase": "insufficient-data",
+                "coverage": self._load_coverage_report(),
+                "analysis_summary": "Aucune activite n'est disponible pour analyser l'historique.",
+            }
 
             latest_date = self._coerce_date(latest_day)
             windows = {
@@ -264,6 +281,7 @@ class LocalCoachToolkit:
             "inferred_paces": inferred_paces,
             "training_phase": training_phase,
             "signal_highlights": signal_highlights,
+            "coverage": self._load_coverage_report(),
             "analysis_summary": analysis_summary,
         }
 
@@ -278,6 +296,12 @@ class LocalCoachToolkit:
         if self.data_dir == DEFAULT_GOAL_PROFILE_PATH.parent.parent:
             return DEFAULT_GOAL_PROFILE_PATH
         return self.data_dir / "reports" / "goal_profile.json"
+
+    def _load_coverage_report(self) -> dict[str, Any]:
+        coverage_path = default_coverage_report_path(self.data_dir)
+        if not coverage_path.exists():
+            return {}
+        return json.loads(coverage_path.read_text(encoding="utf-8"))
 
     def _summarize_running_window(self, con: duckdb.DuckDBPyConnection, latest_date: date, days: int) -> dict[str, Any]:
         window_start = latest_date - timedelta(days=days - 1)

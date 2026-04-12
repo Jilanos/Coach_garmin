@@ -209,6 +209,8 @@ class GarminAuthSyncTest(unittest.TestCase):
             self.assertFalse(summary_one["used_existing_tokenstore"])
             self.assertEqual(summary_one["artifacts_imported"], 6)
             self.assertEqual(summary_two["artifacts_imported"], 6)
+            self.assertGreaterEqual(summary_two["reused_artifacts"], 1)
+            self.assertIn("sync_state", summary_two)
 
             manifest_path = Path(summary_one["manifest_path"])
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

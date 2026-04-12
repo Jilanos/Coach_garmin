@@ -6,31 +6,28 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from coach_garmin.config import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL
+from coach_garmin.config import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 
 
-class OllamaConnectionError(RuntimeError):
+class OpenAIConnectionError(RuntimeError):
     pass
 
 
-class OllamaModelError(RuntimeError):
+class OpenAIModelError(RuntimeError):
     pass
 
 
 @dataclass(slots=True)
-class OllamaCoachClient:
-    base_url: str = DEFAULT_OLLAMA_BASE_URL
-    model: str = DEFAULT_OLLAMA_MODEL
-    timeout_seconds: int = 300
+class OpenAICoachClient:
+    api_key: str | None
+    base_url: str = DEFAULT_OPENAI_BASE_URL
+    model: str = DEFAULT_OPENAI_MODEL
+    timeout_seconds: int = 120
 
     def ensure_ready(self) -> None:
-        payload = self._request_json("/api/tags", {})
-        models = payload.get("models", [])
-        if not isinstance(models, list):
-            raise OllamaConnectionError("Ollama responded without a models list.")
-        if not any(isinstance(item, dict) and item.get("name") == self.model for item in models):
-            raise OllamaModelError(
-                f"Ollama is reachable but the model '{self.model}' is missing. Run `ollama pull {self.model}`."
+        if not self.api_key:
+            raise OpenAIConnectionError(
+                "OPENAI_API_KEY is missing. Put it in the environment or in .env.local, then retry."
             )
 
     def generate_weekly_plan(self, prompt_bundle: dict[str, Any]) -> dict[str, Any]:
@@ -39,20 +36,14 @@ class OllamaCoachClient:
         text = self._chat(prompt)
         parsed = self._parse_json_response(text)
         if "weekly_plan" not in parsed or not isinstance(parsed["weekly_plan"], list):
-            raise RuntimeError("Ollama returned a response without a valid weekly plan payload.")
+            raise RuntimeError("OpenAI returned a response without a valid weekly plan payload.")
         return parsed
 
     def _chat(self, prompt: str) -> str:
         payload = self._request_json(
-            "/api/chat",
+            "/chat/completions",
             {
                 "model": self.model,
-                "stream": False,
-                "format": "json",
-                "options": {
-                    "temperature": 0.2,
-                    "num_predict": 1024,
-                },
                 "messages": [
                     {
                         "role": "system",
@@ -69,30 +60,38 @@ class OllamaCoachClient:
                     },
                     {"role": "user", "content": prompt},
                 ],
+                "temperature": 0.2,
+                "response_format": {"type": "json_object"},
             },
         )
-        message = payload.get("message")
-        if not isinstance(message, dict) or not isinstance(message.get("content"), str):
-            raise RuntimeError("Ollama returned an unexpected chat payload.")
-        return message["content"]
+        choices = payload.get("choices", [])
+        if not isinstance(choices, list) or not choices:
+            raise RuntimeError("OpenAI returned an unexpected chat payload.")
+        message = choices[0].get("message") if isinstance(choices[0], dict) else None
+        content = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(content, str):
+            raise RuntimeError("OpenAI returned a response without text content.")
+        return content
 
-    def _request_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        request = Request(
-            f"{self.base_url}{path}",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        if path == "/api/tags":
-            request = Request(f"{self.base_url}{path}", method="GET")
+    def _request_json(self, path: str, payload: dict[str, Any] | None = None, method: str = "POST") -> dict[str, Any]:
+        url = f"{self.base_url}{path}"
+        data = None if method == "GET" else json.dumps(payload or {}).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        request = Request(url, data=data, headers=headers, method=method)
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 return json.loads(response.read().decode("utf-8"))
         except HTTPError as exc:
-            raise OllamaConnectionError(f"Ollama request failed with HTTP {exc.code}.") from exc
+            if exc.code in {401, 403}:
+                raise OpenAIConnectionError("OPENAI_API_KEY was rejected. Check the key and retry.") from exc
+            if exc.code == 404:
+                raise OpenAIModelError(f"OpenAI model '{self.model}' was not found. Check the model name.") from exc
+            raise OpenAIConnectionError(f"OpenAI request failed with HTTP {exc.code}.") from exc
         except URLError as exc:
-            raise OllamaConnectionError(
-                "Ollama is unavailable. Start the local Ollama app or `ollama serve`, then retry."
+            raise OpenAIConnectionError(
+                "OpenAI is unreachable. Check the network and the OpenAI endpoint URL."
             ) from exc
 
     @staticmethod
@@ -128,14 +127,21 @@ class OllamaCoachClient:
     @staticmethod
     def _parse_json_response(content: str) -> dict[str, Any]:
         text = content.strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             start = text.find("{")
             end = text.rfind("}")
             if start == -1 or end == -1 or end <= start:
-                raise RuntimeError("Ollama returned non-JSON output for the weekly plan.")
+                raise RuntimeError("OpenAI returned non-JSON output for the weekly plan.")
             try:
                 return json.loads(text[start : end + 1])
             except json.JSONDecodeError as exc:
-                raise RuntimeError("Ollama returned invalid JSON for the weekly plan.") from exc
+                raise RuntimeError("OpenAI returned invalid JSON for the weekly plan.") from exc

@@ -4,6 +4,7 @@ from pathlib import Path
 
 DEFAULT_DATA_DIR = Path("data")
 DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "normalized" / "coach_garmin.duckdb"
+DEFAULT_STATE_DB_PATH = DEFAULT_DATA_DIR / "state" / "coach_garmin.sqlite3"
 DEFAULT_REPORT_PATH = DEFAULT_DATA_DIR / "reports" / "latest_metrics.json"
 DEFAULT_COVERAGE_REPORT_PATH = DEFAULT_DATA_DIR / "reports" / "feature_coverage.json"
 DEFAULT_LOCAL_DIR = Path(".local")
@@ -14,6 +15,12 @@ DEFAULT_GARMIN_EMAIL_ENV = "COACH_GARMIN_GARMIN_EMAIL"
 DEFAULT_GARMIN_PASSWORD_ENV = "COACH_GARMIN_GARMIN_PASSWORD"
 DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
 DEFAULT_OLLAMA_MODEL = "qwen2.5:7b"
+DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
+DEFAULT_WEB_HOST = "127.0.0.1"
+DEFAULT_WEB_PORT = 5284
 DEFAULT_GOAL_PROFILE_PATH = DEFAULT_DATA_DIR / "reports" / "goal_profile.json"
 
 SUPPORTED_DATASETS = (

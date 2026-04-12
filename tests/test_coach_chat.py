@@ -10,6 +10,8 @@ from unittest.mock import patch
 
 from coach_garmin.cli import main
 from coach_garmin.coach_chat import run_coach_chat
+from coach_garmin.coach_llm import CoachLLMConfig, build_coach_client
+from coach_garmin.coach_gemini import GeminiCoachClient
 from coach_garmin.coach_tools import LocalCoachToolkit
 from coach_garmin.manual_import import run_import_export
 
@@ -116,6 +118,15 @@ class ShortPlanCoachClient:
 
 
 class CoachChatTest(unittest.TestCase):
+    def test_build_coach_client_defaults_to_ollama(self) -> None:
+        client = build_coach_client(CoachLLMConfig())
+        self.assertEqual(getattr(client, "model", None), "qwen2.5:7b")
+
+    def test_build_coach_client_requires_gemini_api_key(self) -> None:
+        with patch("coach_garmin.coach_llm.resolve_secret", return_value=None):
+            with self.assertRaisesRegex(RuntimeError, "GEMINI_API_KEY is missing"):
+                build_coach_client(CoachLLMConfig(provider="gemini"))
+
     def test_local_coach_toolkit_reads_metrics_history_and_persists_outputs(self) -> None:
         with TemporaryDirectory() as tmp:
             data_dir = Path(tmp) / "data"
@@ -203,6 +214,21 @@ class CoachChatTest(unittest.TestCase):
                     output_func=lambda message: None,
                     llm_client=FailingCoachClient(),
                 )
+
+    def test_gemini_client_parses_generate_content_payload(self) -> None:
+        client = GeminiCoachClient(api_key="test-key")
+        payload = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": '{"coach_summary":"Analyse","signals_used":["load_7d"],"weekly_plan":[{"day":"Lundi","session_title":"Footing","objective":"Tester","duration_minutes":45,"intensity":"Z2","notes":"Facile"}]}'}
+                        ]
+                    }
+                }
+            ]
+        }
+        self.assertEqual(client._parse_json_response(payload["candidates"][0]["content"]["parts"][0]["text"])["weekly_plan"][0]["day"], "Lundi")
 
     def test_run_coach_chat_normalizes_partial_model_output_to_seven_days(self) -> None:
         with TemporaryDirectory() as tmp:

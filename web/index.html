@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1020" />
+    <meta name="description" content="Coach ultra perso local-first" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20260412" />
+    <link rel="icon" href="/icon.svg?v=20260412" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css?v=20260412" />
+    <title>Coach ultra perso</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Coach ultra perso</p>
+          <h1>Coach ultra perso.</h1>
+          <p class="lede">
+            Un coach running local-first qui garde tes données chez toi, suit tes signaux d'entraînement et
+            te répond clairement sans noyer l'écran.
+          </p>
+        </div>
+        <div class="install-card">
+          <div class="status-row">
+            <span class="pill pill-small" id="provider-chip">Provider: chargement...</span>
+            <span class="pill pill-small" id="import-chip">Données: -</span>
+          </div>
+          <div class="workspace-note" id="workspace-chip">Workspace: -</div>
+          <button id="install-button" class="ghost-button hidden" type="button">Installer l'app</button>
+          <p class="fine-print">PWA installable, offline-first, données locales par défaut.</p>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel chat-panel">
+          <div class="panel-header">
+            <h2>Chat coach</h2>
+            <p>Décris ton objectif, réponds aux questions, puis lance le plan.</p>
+          </div>
+
+          <div class="busy-banner hidden" id="busy-banner" aria-live="polite">
+            <span class="busy-spinner" aria-hidden="true"></span>
+            <span id="busy-text">Analyse en cours...</span>
+          </div>
+
+          <div class="chat-transcript" id="chat-transcript" aria-live="polite"></div>
+
+          <div class="composer">
+            <label>
+              Objectif
+              <textarea id="goal-input" rows="4" placeholder="Ex. Je vise un 10 km en sub 40 dans 12 semaines"></textarea>
+            </label>
+            <div class="grid-2">
+              <label>
+                Provider IA
+                <select id="provider-select">
+                  <option value="ollama">Ollama</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="openai">OpenAI</option>
+                </select>
+              </label>
+              <label>
+                Modèle
+                <input id="model-input" type="text" placeholder="qwen2.5:7b" />
+              </label>
+            </div>
+            <div class="grid-2">
+              <label>
+                Dossier local
+                <input id="data-dir-input" type="text" placeholder="data" />
+              </label>
+              <label>
+                Source Garmin
+                <input id="source-path-input" type="text" placeholder="D:\\Transfert PC thèse\\garmin-export" />
+              </label>
+            </div>
+            <div class="actions">
+              <button id="prepare-button" class="primary-button" type="button">Poser les questions</button>
+              <button id="plan-button" class="secondary-button" type="button">Générer le plan</button>
+              <button id="import-button" class="secondary-button" type="button">Importer Garmin</button>
+            </div>
+          </div>
+
+          <div class="questions" id="questions"></div>
+        </section>
+
+        <aside class="sidebar">
+          <section class="panel dashboard-panel">
+            <div class="panel-header">
+              <h2>Dashboard</h2>
+              <p>État santé, import et métriques d'analyse.</p>
+            </div>
+            <div class="dashboard-status" id="dashboard-status">
+              <div id="workspace-status-line">Workspace: -</div>
+              <div id="import-status-line">Import: -</div>
+            </div>
+            <div class="metric-grid">
+              <article class="metric-card">
+                <span class="card-label">Volume hebdo</span>
+                <strong id="weekly-volume-card">-</strong>
+                <p id="weekly-volume-subtitle">-</p>
+              </article>
+              <article class="metric-card">
+                <span class="card-label">Charge</span>
+                <strong id="load-card">-</strong>
+                <p id="load-subtitle">-</p>
+              </article>
+              <article class="metric-card">
+                <span class="card-label">FC repos</span>
+                <strong id="resting-hr-card">-</strong>
+                <p id="resting-hr-subtitle">-</p>
+              </article>
+              <article class="metric-card">
+                <span class="card-label">Sommeil</span>
+                <strong id="sleep-card">-</strong>
+                <p id="sleep-subtitle">-</p>
+              </article>
+              <article class="metric-card">
+                <span class="card-label">Allure / FC</span>
+                <strong id="pace-hr-card">-</strong>
+                <p id="pace-hr-subtitle">-</p>
+              </article>
+              <article class="metric-card">
+                <span class="card-label">FC max estimée</span>
+                <strong id="max-hr-card">-</strong>
+                <p id="max-hr-subtitle">-</p>
+              </article>
+            </div>
+            <div class="trend-grid">
+              <article class="trend-card">
+                <div class="trend-header">
+                  <div>
+                    <span class="card-label">Courbe volume</span>
+                    <strong>14 derniers jours</strong>
+                  </div>
+                  <p id="volume-trend-summary">-</p>
+                </div>
+                <div id="volume-trend" class="sparkline"></div>
+              </article>
+              <article class="trend-card">
+                <div class="trend-header">
+                  <div>
+                    <span class="card-label">Courbe allure / FC</span>
+                    <strong>Dernières sorties</strong>
+                  </div>
+                  <p id="pace-hr-trend-summary">-</p>
+                </div>
+                <div id="pace-hr-trend" class="sparkline"></div>
+              </article>
+            </div>
+            <article class="insight-card">
+              <span class="card-label">Lecture coach</span>
+              <strong id="analysis-card">-</strong>
+              <p id="analysis-subtitle">-</p>
+            </article>
+          </section>
+
+          <section class="panel settings-panel">
+            <div class="panel-header">
+              <h2>Réglages</h2>
+              <p>Dossier local et provider IA.</p>
+            </div>
+            <div class="grid-1">
+              <label>
+                Dossier de travail local
+                <input id="workspace-input" type="text" placeholder="data" />
+              </label>
+              <label>
+                Base URL du provider
+                <input id="base-url-input" type="text" placeholder="http://127.0.0.1:11434" />
+              </label>
+              <div class="actions">
+                <button id="save-settings-button" class="primary-button" type="button">Sauvegarder</button>
+                <button id="refresh-button" class="secondary-button" type="button">Actualiser</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel plan-panel">
+            <div class="panel-header">
+              <h2>Résumé coach</h2>
+              <p>Lecture rapide des derniers signaux et du plan.</p>
+            </div>
+            <div id="coach-summary" class="summary-box">Aucun plan généré pour le moment.</div>
+            <div id="plan-list" class="plan-list"></div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <template id="question-template">
+      <label class="question">
+        <span class="question-label"></span>
+        <input type="text" />
+      </label>
+    </template>
+
+    <script src="/app.js?v=20260412" type="module"></script>
+  </body>
+</html>

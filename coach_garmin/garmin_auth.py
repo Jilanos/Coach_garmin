@@ -26,6 +26,7 @@ from coach_garmin.config import (
 from coach_garmin.contracts import ArtifactRecord, SyncManifest
 from coach_garmin.env import resolve_secret
 from coach_garmin.storage import ensure_data_dirs, new_run_id, now_utc, write_json, write_raw_payload
+from coach_garmin.sync_state import load_sync_summary, lookup_artifact_index, record_sync_run
 
 
 class GarminClientProtocol(Protocol):
@@ -408,6 +409,7 @@ def run_authenticated_sync(
     run_id = new_run_id()
     started_at = now_utc()
     warnings: list[str] = []
+    state_summary_before = load_sync_summary(data_dir)
     client, used_existing_tokenstore = _authenticate_client(
         tokenstore_path=tokenstore_path,
         email=email,
@@ -456,20 +458,35 @@ def run_authenticated_sync(
         data = payload["data"]
         if not data:
             continue
+        payload_hash = _hash_payload(payload)
         range_metadata = {
             "start_date": sync_window.start_text,
             "end_date": sync_window.end_text,
             "source_kind": "garmin-authenticated-api",
             "tokenstore_path": str(tokenstore_path),
         }
-        artifact = _store_dataset_artifact(
-            data_dir=data_dir,
-            run_id=run_id,
-            dataset=dataset,
-            payload=payload,
-            source_path=source_path,
-            range_metadata=range_metadata,
-        )
+        known_artifact = lookup_artifact_index(data_dir, dataset, payload_hash)
+        if known_artifact and Path(str(known_artifact["stored_path"])).exists():
+            stored_path = Path(str(known_artifact["stored_path"]))
+            artifact = ArtifactRecord(
+                dataset=dataset,
+                source_path=source_path,
+                stored_path=str(stored_path.resolve()),
+                file_format="json",
+                record_count=len(payload.get("data", [])),
+                content_hash=payload_hash,
+                metadata={**range_metadata, "source_filename": stored_path.name, "storage_state": "reused"},
+            )
+        else:
+            artifact = _store_dataset_artifact(
+                data_dir=data_dir,
+                run_id=run_id,
+                dataset=dataset,
+                payload=payload,
+                source_path=source_path,
+                range_metadata=range_metadata,
+            )
+            artifact.metadata["storage_state"] = "copied"
         artifacts.append(artifact)
         datasets_seen.add(dataset)
         total_records += artifact.record_count
@@ -493,11 +510,18 @@ def run_authenticated_sync(
             "tokenstore_path": str(tokenstore_path),
             "used_existing_tokenstore": used_existing_tokenstore,
             "warnings": warnings,
+            "state_before": state_summary_before,
         },
         artifacts=artifacts,
     )
     manifest_path = data_dir / "runs" / f"{run_id}.json"
     write_json(manifest_path, manifest.to_dict())
+    state_summary_after = record_sync_run(
+        data_dir,
+        manifest=manifest.to_dict(),
+        artifacts=[artifact.to_dict() for artifact in artifacts],
+        pending_count=len(warnings),
+    )
     analytics_summary = rebuild_analytics(data_dir)
 
     return {
@@ -511,7 +535,11 @@ def run_authenticated_sync(
         "artifacts_imported": len(artifacts),
         "datasets_seen": sorted(datasets_seen),
         "total_records": total_records,
+        "new_artifacts": state_summary_after.get("new_artifact_count"),
+        "reused_artifacts": state_summary_after.get("reused_artifact_count"),
+        "pending_count": state_summary_after.get("pending_count"),
         "warnings": warnings,
+        "sync_state": state_summary_after,
         "coverage_report_path": analytics_summary.get("coverage_report_path"),
         "analytics": analytics_summary,
     }

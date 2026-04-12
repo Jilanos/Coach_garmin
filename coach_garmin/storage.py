@@ -3,8 +3,11 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import tempfile
 import shutil
+import zipfile
 from dataclasses import dataclass
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -15,6 +18,7 @@ from coach_garmin.config import (
     DEFAULT_DATA_DIR,
     DEFAULT_DB_PATH,
     DEFAULT_REPORT_PATH,
+    DEFAULT_STATE_DB_PATH,
 )
 from coach_garmin.fit_parser import read_fit_activity_records
 
@@ -32,6 +36,7 @@ def ensure_data_dirs(data_dir: Path) -> dict[str, Path]:
         "runs": data_dir / "runs",
         "normalized": data_dir / "normalized",
         "reports": data_dir / "reports",
+        "state": data_dir / "state",
     }
     for path in paths.values():
         path.mkdir(parents=True, exist_ok=True)
@@ -200,6 +205,20 @@ def write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
 
+@contextmanager
+def materialize_source_root(source: Path):
+    if source.is_dir():
+        yield source
+        return
+    if source.is_file() and source.suffix.lower() == ".zip":
+        with tempfile.TemporaryDirectory(prefix="coach_garmin_zip_") as tmp_dir:
+            with zipfile.ZipFile(source) as archive:
+                archive.extractall(tmp_dir)
+            yield Path(tmp_dir)
+        return
+    yield source
+
+
 def detect_dataset(path: Path) -> str | None:
     candidates = [path.stem.lower(), path.parent.name.lower()]
     normalized_candidates: list[str] = []
@@ -298,6 +317,12 @@ def default_db_path(data_dir: Path) -> Path:
     if data_dir == DEFAULT_DATA_DIR:
         return DEFAULT_DB_PATH
     return data_dir / "normalized" / "coach_garmin.duckdb"
+
+
+def default_state_db_path(data_dir: Path) -> Path:
+    if data_dir == DEFAULT_DATA_DIR:
+        return DEFAULT_STATE_DB_PATH
+    return data_dir / "state" / "coach_garmin.sqlite3"
 
 
 def default_report_path(data_dir: Path) -> Path:

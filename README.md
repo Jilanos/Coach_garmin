@@ -8,6 +8,7 @@ Local-first Garmin data foundation for:
 - normalized local storage in DuckDB
 - deterministic running and recovery metrics
 - local coaching chat backed by Ollama and local Garmin-derived signals
+- local-first PWA shell named Coach ultra perso with chat, import, and dashboard entrypoints
 
 ## Quick start
 
@@ -81,10 +82,18 @@ The authenticated token cache is stored locally under `.local/garmin/garmin_toke
 .venv\Scripts\python -m coach_garmin coach chat --goal "Je vise un semi en 1h45"
 ```
 
+To force a provider:
+
+```powershell
+.venv\Scripts\python -m coach_garmin coach chat --provider ollama --goal "Je vise un semi en 1h45"
+.venv\Scripts\python -m coach_garmin coach chat --provider gemini --goal "Je vise un semi en 1h45"
+```
+
 The coach chat:
 
 - runs in French by default
 - uses Ollama locally with `qwen2.5:7b` by default
+- can switch to Gemini when `GEMINI_API_KEY` is available in the environment or `.env.local`
 - asks clarification questions when the goal is underspecified
 - reads local metrics, goals, benchmark performances, and training history
 - consumes the coverage report to avoid overclaiming missing signals
@@ -92,6 +101,27 @@ The coach chat:
 - chooses a principal objective when several goals are given
 - uses pace-aware workout guidance when recent race or benchmark evidence is available
 - saves a versioned weekly plan under `data/reports/weekly_plan_<timestamp>.json`
+
+8. Start the local-first PWA shell:
+
+```powershell
+.venv\Scripts\python -m coach_garmin web serve --web-root web --data-dir data
+```
+
+On Windows, you can also double-click:
+
+```text
+Start Coach Garmin PWA.cmd
+```
+
+The PWA shell:
+
+- runs offline-first in a local browser tab
+- stores workspace preferences locally in the browser
+- lets you choose the AI provider between Ollama, Gemini, and OpenAI
+- offers a compact dashboard for app health, import status, and analysis metrics
+- exposes the same local import and coaching flows through `/api/*`
+- is intentionally simple in the first version so it can later be wrapped for desktop or Android
 
 ## Local-only data hygiene
 

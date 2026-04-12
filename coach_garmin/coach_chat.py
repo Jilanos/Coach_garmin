@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from coach_garmin.coach_ollama import OllamaCoachClient
+from coach_garmin.coach_llm import CoachLLMConfig, build_coach_client
 from coach_garmin.coach_tools import LocalCoachToolkit
 
 
@@ -48,24 +48,13 @@ class CoachChatSession:
         metrics_context = self.toolkit.metrics()
         analysis_context = self.toolkit.analysis(goal_profile)
         plan_skeleton = self._build_plan_skeleton(goal_profile, metrics_context, history_context, analysis_context)
-        prompt_bundle = {
-            "goal_profile": goal_profile,
-            "metrics": metrics_context,
-            "history": history_context,
-            "analysis": analysis_context,
-            "coverage": metrics_context.get("coverage", {}),
-            "suggested_plan_skeleton": plan_skeleton,
-            "generation_rules": {
-                "language": "fr",
-                "plan_days": 7,
-                "must_reference_local_signals": True,
-                "must_be_cautious": True,
-                "must_be_direct_and_analytical": True,
-                "must_analyze_before_planning": True,
-                "must_use_pace_when_confident": True,
-                "must_respect_signal_coverage": True,
-            },
-        }
+        prompt_bundle = self._build_prompt_bundle(
+            goal_profile=goal_profile,
+            metrics_context=metrics_context,
+            history_context=history_context,
+            analysis_context=analysis_context,
+            plan_skeleton=plan_skeleton,
+        )
         plan_response = self.llm_client.generate_weekly_plan(prompt_bundle)
         normalized_plan = self._normalize_weekly_plan(plan_response.get("weekly_plan", []), plan_skeleton)
         normalized_plan = self._enrich_weekly_plan(normalized_plan, plan_skeleton)
@@ -99,6 +88,108 @@ class CoachChatSession:
             "goal_profile": goal_profile,
             "signals_used": saved_plan_payload["signals_used"],
             "weekly_plan": saved_plan_payload["weekly_plan"],
+        }
+
+    @staticmethod
+    def _build_prompt_bundle(
+        *,
+        goal_profile: dict[str, Any],
+        metrics_context: dict[str, Any],
+        history_context: dict[str, Any],
+        analysis_context: dict[str, Any],
+        plan_skeleton: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        coverage = metrics_context.get("coverage", {}) if isinstance(metrics_context.get("coverage", {}), dict) else {}
+        coach_coverage = coverage.get("coach", {}) if isinstance(coverage.get("coach", {}), dict) else {}
+        latest_metrics = metrics_context.get("latest_metrics", {}) if isinstance(metrics_context.get("latest_metrics", {}), dict) else {}
+        compact_metrics = {
+            key: latest_metrics.get(key)
+            for key in (
+                "load_7d",
+                "load_28d",
+                "sleep_hours_7d",
+                "resting_hr_7d",
+                "hrv_7d",
+                "fatigue_flag",
+                "overreaching_flag",
+            )
+            if key in latest_metrics
+        }
+        compact_history = {
+            key: history_context.get(key)
+            for key in (
+                "available",
+                "latest_activity_day",
+                "recent_activity_count",
+                "recent_running_days",
+                "total_distance_km",
+                "total_duration_minutes",
+                "long_run_km",
+                "recent_activities",
+            )
+            if key in history_context
+        }
+        compact_analysis = {
+            key: analysis_context.get(key)
+            for key in (
+                "available",
+                "principal_objective",
+                "recommended_benchmark",
+                "inferred_paces",
+                "training_phase",
+                "signal_highlights",
+                "analysis_summary",
+            )
+            if key in analysis_context
+        }
+        compact_windows = analysis_context.get("windows", {})
+        if isinstance(compact_windows, dict):
+            compact_analysis["windows"] = {
+                key: value
+                for key, value in compact_windows.items()
+                if key in {"21d", "90d", "365d"} and isinstance(value, dict)
+            }
+        if isinstance(compact_analysis.get("recommended_benchmark"), dict):
+            benchmark = compact_analysis["recommended_benchmark"]
+            compact_analysis["recommended_benchmark"] = {
+                key: benchmark.get(key)
+                for key in ("event", "distance_km", "duration_minutes", "pace_min_per_km", "activity_date")
+                if key in benchmark
+            }
+        return {
+            "goal_profile": {
+                key: goal_profile.get(key)
+                for key in (
+                    "goal_text",
+                    "target_event",
+                    "principal_objective",
+                    "target_time",
+                    "target_timeline_weeks",
+                    "available_days_per_week",
+                    "constraints",
+                    "current_weekly_distance_km",
+                    "stated_benchmarks",
+                )
+                if key in goal_profile
+            },
+            "metrics": compact_metrics,
+            "history": compact_history,
+            "analysis": compact_analysis,
+            "coverage": {
+                "coverage_ratio": coach_coverage.get("coverage_ratio"),
+                "available_signals": coach_coverage.get("available_signals", []),
+            },
+            "suggested_plan_skeleton": plan_skeleton,
+            "generation_rules": {
+                "language": "fr",
+                "plan_days": 7,
+                "must_reference_local_signals": True,
+                "must_be_cautious": True,
+                "must_be_direct_and_analytical": True,
+                "must_analyze_before_planning": True,
+                "must_use_pace_when_confident": True,
+                "must_respect_signal_coverage": True,
+            },
         }
 
     def _render_summary(self, payload: dict[str, Any]) -> None:
@@ -720,13 +811,26 @@ def run_coach_chat(
     *,
     data_dir: Path,
     goal_text: str | None = None,
+    provider: str = "ollama",
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
     input_func: InputFunc = input,
     output_func: OutputFunc = print,
     llm_client: Any | None = None,
 ) -> dict[str, Any]:
     session = CoachChatSession(
         toolkit=LocalCoachToolkit(data_dir=data_dir),
-        llm_client=llm_client or OllamaCoachClient(),
+        llm_client=
+        llm_client
+        or build_coach_client(
+            CoachLLMConfig(
+                provider=provider,
+                model=model,
+                base_url=base_url,
+                api_key=api_key,
+            )
+        ),
         input_func=input_func,
         output_func=output_func,
     )

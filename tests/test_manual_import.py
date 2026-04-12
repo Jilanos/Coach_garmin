@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import unittest
+import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -9,6 +10,7 @@ from unittest.mock import patch
 import duckdb
 
 from coach_garmin.manual_import import run_import_export
+from coach_garmin.sync_state import load_sync_summary
 
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "manual_export"
@@ -175,3 +177,24 @@ class ManualImportTest(unittest.TestCase):
             self.assertEqual(summary["artifacts_imported"], 1)
             self.assertEqual(summary["datasets_seen"], ["activities"])
             fit_reader.assert_not_called()
+
+    def test_run_import_export_supports_zip_baseline_and_records_sync_state(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            zip_path = root / "garmin-export.zip"
+            with zipfile.ZipFile(zip_path, "w") as archive:
+                for file_path in FIXTURE_DIR.rglob("*"):
+                    if file_path.is_file():
+                        archive.write(file_path, file_path.relative_to(FIXTURE_DIR).as_posix())
+
+            data_dir = root / "data"
+            first = run_import_export(zip_path, data_dir, run_label="zip-baseline")
+            second = run_import_export(zip_path, data_dir, run_label="zip-refresh")
+
+            self.assertGreaterEqual(first["artifacts_imported"], 1)
+            self.assertGreaterEqual(second["reused_artifacts"], 1)
+
+            state = load_sync_summary(data_dir)
+            self.assertTrue(state["available"])
+            self.assertEqual(state["run_count"], 2)
+            self.assertGreaterEqual(state["artifact_index_rows"], 1)

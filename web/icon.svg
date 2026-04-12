@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Coach Garmin">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8ae6c0"/>
+      <stop offset="100%" stop-color="#8ab4ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="#0b1020"/>
+  <circle cx="128" cy="128" r="86" fill="none" stroke="url(#g)" stroke-width="18"/>
+  <path d="M82 146c14 16 30 24 46 24 28 0 46-16 46-39 0-20-14-34-34-34-14 0-24 7-31 17" fill="none" stroke="url(#g)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M168 82v30h-30" fill="none" stroke="url(#g)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

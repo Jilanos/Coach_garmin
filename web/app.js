@@ -1,591 +1,66 @@
-const state = {
-  dataDir: localStorage.getItem("coachGarmin.dataDir") || "data",
-  workspace: localStorage.getItem("coachGarmin.workspace") || "data",
-  provider: localStorage.getItem("coachGarmin.provider") || "ollama",
-  model: localStorage.getItem("coachGarmin.model") || "",
-  baseUrl: localStorage.getItem("coachGarmin.baseUrl") || "",
-  sourcePath: localStorage.getItem("coachGarmin.sourcePath") || "",
-  goalText: localStorage.getItem("coachGarmin.goalText") || "",
-  currentQuestions: [],
-  answers: {},
-  installPrompt: null,
-};
-
-const $ = (id) => document.getElementById(id);
-
-const transcript = $("chat-transcript");
-const questionsBox = $("questions");
-const planList = $("plan-list");
-const summaryBox = $("coach-summary");
-const busyBanner = $("busy-banner");
-const busyText = $("busy-text");
-const providerChip = $("provider-chip");
-const importChip = $("import-chip");
-const workspaceChip = $("workspace-chip");
-const workspaceLine = $("workspace-status-line");
-const importLine = $("import-status-line");
-const installButton = $("install-button");
-
-const actionButtons = [];
-
-function formatNumber(value, digits = 0) {
-  if (value === null || value === undefined || value === "") {
-    return "-";
-  }
-  const numeric = Number(value);
-  if (Number.isNaN(numeric)) {
-    return String(value);
-  }
-  return new Intl.NumberFormat("fr-FR", {
-    maximumFractionDigits: digits,
-    minimumFractionDigits: digits,
-  }).format(numeric);
-}
-
-function formatKilometers(value) {
-  if (value === null || value === undefined || value === "") {
-    return "-";
-  }
-  return `${formatNumber(value, 1)} km`;
-}
-
-function formatPace(value) {
-  if (value === null || value === undefined || value === "") {
-    return "-";
-  }
-  const totalMinutes = Number(value);
-  if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) {
-    return "-";
-  }
-  const minutes = Math.floor(totalMinutes);
-  const seconds = Math.round((totalMinutes - minutes) * 60);
-  if (seconds === 60) {
-    return `${minutes + 1}:00/km`;
-  }
-  return `${minutes}:${String(seconds).padStart(2, "0")}/km`;
-}
-
-function formatHeartRate(value) {
-  if (value === null || value === undefined || value === "") {
-    return "-";
-  }
-  return `${formatNumber(value, 0)} bpm`;
-}
-
-function formatDurationHours(value) {
-  if (value === null || value === undefined || value === "") {
-    return "-";
-  }
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return "-";
-  }
-  const hours = Math.floor(numeric);
-  const minutes = Math.round((numeric - hours) * 60);
-  if (!hours) {
-    return `${minutes} min`;
-  }
-  return `${hours}h ${String(minutes).padStart(2, "0")}`;
-}
-
-function setBusy(active, message = "Analyse en cours...") {
-  busyBanner.classList.toggle("hidden", !active);
-  busyText.textContent = message;
-  document.body.classList.toggle("is-busy", active);
-  actionButtons.forEach((button) => {
-    button.disabled = active;
-  });
-}
-
-function addMessage(role, text) {
-  const node = document.createElement("div");
-  node.className = `message ${role}`;
-  node.textContent = text;
-  transcript.appendChild(node);
-  transcript.scrollTop = transcript.scrollHeight;
-}
-
-function setInputs() {
-  $("data-dir-input").value = state.dataDir;
-  $("workspace-input").value = state.workspace;
-  $("provider-select").value = state.provider;
-  $("model-input").value = state.model;
-  $("base-url-input").value = state.baseUrl;
-  $("source-path-input").value = state.sourcePath;
-  $("goal-input").value = state.goalText;
-}
-
-function persistSettings() {
-  state.dataDir = $("data-dir-input").value.trim() || "data";
-  state.workspace = $("workspace-input").value.trim() || state.dataDir;
-  state.provider = $("provider-select").value;
-  state.model = $("model-input").value.trim();
-  state.baseUrl = $("base-url-input").value.trim();
-  state.sourcePath = $("source-path-input").value.trim();
-  state.goalText = $("goal-input").value.trim();
-
-  localStorage.setItem("coachGarmin.dataDir", state.dataDir);
-  localStorage.setItem("coachGarmin.workspace", state.workspace);
-  localStorage.setItem("coachGarmin.provider", state.provider);
-  localStorage.setItem("coachGarmin.model", state.model);
-  localStorage.setItem("coachGarmin.baseUrl", state.baseUrl);
-  localStorage.setItem("coachGarmin.sourcePath", state.sourcePath);
-  localStorage.setItem("coachGarmin.goalText", state.goalText);
-}
-
-async function requestJson(url, options = {}) {
-  const response = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
-  });
-
-  let payload = {};
-  try {
-    payload = await response.json();
-  } catch {
-    payload = {};
-  }
-
-  if (!response.ok) {
-    throw new Error(payload.error || `Request failed with status ${response.status}`);
-  }
-  return payload;
-}
-
-async function withBusy(message, action) {
-  setBusy(true, message);
-  try {
-    return await action();
-  } finally {
-    setBusy(false);
-  }
-}
-
-function renderSparkline(container, series, options = {}) {
-  const values = Array.isArray(series) ? series.filter((value) => Number.isFinite(Number(value))) : [];
-  if (!values.length) {
-    container.innerHTML = "<p class='status-line'>Pas encore de données exploitables.</p>";
-    return;
-  }
-
-  const width = options.width || 340;
-  const height = options.height || 90;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const step = values.length > 1 ? width / (values.length - 1) : width;
-  const points = values.map((value, index) => {
-    const x = values.length > 1 ? index * step : width / 2;
-    const y = height - ((Number(value) - min) / span) * (height - 16) - 8;
-    return { x, y };
-  });
-  const line = points.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
-  const area = `0,${height} ${line} ${width},${height}`;
-
-  container.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="sparkline-fill-${options.id || "base"}" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stop-color="${options.fill || "rgba(138, 230, 192, 0.38)"}" />
-          <stop offset="100%" stop-color="rgba(138, 230, 192, 0.03)" />
-        </linearGradient>
-      </defs>
-      <polygon points="${area}" fill="url(#sparkline-fill-${options.id || "base"})"></polygon>
-      <polyline
-        points="${line}"
-        fill="none"
-        stroke="${options.stroke || "#8ae6c0"}"
-        stroke-width="3"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      ></polyline>
-      ${points
-        .map(
-          (point) => `
-            <circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="3.5" fill="${options.stroke || "#8ae6c0"}"></circle>
-          `,
-        )
-        .join("")}
-    </svg>
-  `;
-}
-
-function renderTrendCard(container, series, options = {}) {
-  const values = Array.isArray(series) ? series : [];
-  if (!values.length) {
-    container.innerHTML = "<p class='status-line'>Aucune tendance disponible pour le moment.</p>";
-    return;
-  }
-  renderSparkline(container, values, options);
-}
-
-function renderDashboard(payload) {
-  const workspace = payload.workspace || {};
-  const importStatus = payload.import_status || {};
-  const analysis = payload.analysis || {};
-  const metrics = analysis.metrics || {};
-  const trend = analysis.trend || {};
-  const provider = payload.provider || {};
-  const latestRun = importStatus.latest_run || payload.health?.latest_sync_run || null;
-  const syncState = importStatus.sync_state || payload.health?.sync_state || {};
-  const ready = provider.status === "ready";
-
-  const workspaceLabel = workspace.path || state.workspace || state.dataDir;
-  const importState = importStatus.state || (importStatus.available ? "indexed" : "empty");
-  const providerLabel = ready
-    ? `Provider ${provider.provider === "ollama" ? "Ollama" : provider.provider} prêt`
-    : `Provider ${provider.provider || state.provider} indisponible`;
-  const importLabel = importState === "imported" ? "Données importées" : importState === "indexed" ? "Données indexées" : "Aucune donnée importée";
-  const importDetail = latestRun
-    ? `Dernier import: ${latestRun.run_label || "sync"} · ${latestRun.total_records || 0} enregistrements · ${syncState.new_artifact_count || 0} nouveaux · ${syncState.reused_artifact_count || 0} réutilisés · ${syncState.pending_count || 0} en attente`
-    : "Aucun import Garmin détecté pour ce workspace.";
-
-  providerChip.textContent = providerLabel;
-  providerChip.classList.toggle("warn", !ready);
-  importChip.textContent = `Données: ${importLabel}`;
-  importChip.classList.toggle("warn", importState === "empty");
-  workspaceChip.textContent = `Workspace: ${workspaceLabel}`;
-  workspaceLine.textContent = `Workspace: ${workspaceLabel}`;
-  importLine.textContent = `Import: ${importDetail}`;
-
-  $("weekly-volume-card").textContent = formatKilometers(metrics.weekly_volume_km ?? metrics.total_distance_km_7d ?? metrics.total_distance_km_21d);
-  $("weekly-volume-subtitle").textContent = `${formatNumber(metrics.weekly_running_days ?? metrics.recent_running_days ?? 0)} sorties course sur 7 jours`;
-
-  const load7d = metrics.load_7d;
-  const load28d = metrics.load_28d;
-  const ratio = metrics.load_ratio_7_28;
-  $("load-card").textContent = load7d === null || load7d === undefined ? "-" : formatNumber(load7d, 0);
-  $("load-subtitle").textContent =
-    load28d !== null && load28d !== undefined
-      ? `28j ${formatNumber(load28d, 0)} · ratio ${ratio === null || ratio === undefined ? "-" : formatNumber(ratio, 2)}`
-      : "Charge non disponible";
-
-  $("resting-hr-card").textContent = formatHeartRate(metrics.resting_hr_7d);
-  $("resting-hr-subtitle").textContent = metrics.fatigue_flag ? "Fatigue détectée" : "Signal stable";
-
-  $("sleep-card").textContent = metrics.sleep_hours_7d === null || metrics.sleep_hours_7d === undefined ? "-" : `${formatNumber(metrics.sleep_hours_7d, 1)} h`;
-  $("sleep-subtitle").textContent = metrics.overreaching_flag ? "Récupération à surveiller" : "Sommeil récent correct";
-
-  const pace = metrics.average_pace_21d ?? metrics.threshold_pace_min_per_km;
-  const latestHr = trend.pace_hr_sessions?.length ? trend.pace_hr_sessions[trend.pace_hr_sessions.length - 1].average_hr : null;
-  $("pace-hr-card").textContent = `${formatPace(pace)} · ${formatHeartRate(latestHr)}`;
-  $("pace-hr-subtitle").textContent =
-    analysis.benchmark?.event && analysis.benchmark?.pace_min_per_km
-      ? `${analysis.benchmark.event} repère ${formatPace(analysis.benchmark.pace_min_per_km)}`
-      : "Base allure calculée depuis l'historique";
-
-  $("max-hr-card").textContent = formatHeartRate(metrics.max_hr_estimate);
-  $("max-hr-subtitle").textContent = metrics.max_hr_estimate ? "Estimée depuis les zones" : "Non disponible";
-
-  $("analysis-card").textContent = analysis.summary || "Aucune lecture coach pour le moment.";
-  const signalBits = [];
-  if (analysis.training_phase) signalBits.push(`Phase: ${analysis.training_phase}`);
-  if (metrics.hrv_7d !== null && metrics.hrv_7d !== undefined) signalBits.push(`HRV 7j: ${formatNumber(metrics.hrv_7d, 1)}`);
-  if (metrics.long_run_km !== null && metrics.long_run_km !== undefined) signalBits.push(`Sortie longue: ${formatKilometers(metrics.long_run_km)}`);
-  $("analysis-subtitle").textContent = signalBits.join(" · ") || "Analyse locale en attente.";
-
-  $("volume-trend-summary").textContent =
-    trend.daily_volume?.length
-      ? `${formatKilometers(trend.daily_volume.reduce((sum, row) => sum + (row.distance_km || 0), 0))} sur ${trend.daily_volume.length} jours`
-      : "Pas encore de série";
-  renderTrendCard(
-    $("volume-trend"),
-    trend.daily_volume?.map((row) => row.distance_km || 0) || [],
-    {
-      id: "volume",
-      stroke: "#8ae6c0",
-      fill: "rgba(138, 230, 192, 0.35)",
-      height: 96,
-      width: 360,
-    },
-  );
-
-  const paceSeries = trend.pace_hr_sessions?.map((row) => row.pace_min_per_km || 0) || [];
-  const hrSeries = trend.pace_hr_sessions?.map((row) => row.average_hr || 0) || [];
-  const paceSummary =
-    trend.pace_hr_sessions?.length && trend.pace_hr_sessions[trend.pace_hr_sessions.length - 1]
-      ? `${formatPace(trend.pace_hr_sessions[trend.pace_hr_sessions.length - 1].pace_min_per_km)} · ${formatHeartRate(trend.pace_hr_sessions[trend.pace_hr_sessions.length - 1].average_hr)}`
-      : "Pas encore de séries";
-  $("pace-hr-trend-summary").textContent = paceSummary;
-  const paceChart = $("pace-hr-trend");
-  if (!paceSeries.length || !hrSeries.length) {
-    paceChart.innerHTML = "<p class='status-line'>Aucune série récente pour la courbe allure / FC.</p>";
-  } else {
-    const paceSvgId = "pace";
-    const hrSvgId = "hr";
-    const paceWidth = 360;
-    const chartHeight = 54;
-    const renderSeries = (series, stroke, fill, id) => {
-      const values = series.filter((value) => Number.isFinite(Number(value)));
-      if (!values.length) {
-        return "<p class='status-line'>Pas de données.</p>";
-      }
-      const min = Math.min(...values);
-      const max = Math.max(...values);
-      const span = max - min || 1;
-      const step = values.length > 1 ? paceWidth / (values.length - 1) : paceWidth;
-      const points = values.map((value, index) => {
-        const x = values.length > 1 ? index * step : paceWidth / 2;
-        const y = chartHeight - ((Number(value) - min) / span) * (chartHeight - 12) - 6;
-        return { x, y };
-      });
-      const line = points.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
-      return `
-        <svg viewBox="0 0 ${paceWidth} ${chartHeight}" preserveAspectRatio="none" aria-hidden="true">
-          <defs>
-            <linearGradient id="sparkline-fill-${id}" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stop-color="${fill}" />
-              <stop offset="100%" stop-color="rgba(138, 180, 255, 0.02)" />
-            </linearGradient>
-          </defs>
-          <polygon points="0,${chartHeight} ${line} ${paceWidth},${chartHeight}" fill="url(#sparkline-fill-${id})"></polygon>
-          <polyline
-            points="${line}"
-            fill="none"
-            stroke="${stroke}"
-            stroke-width="3"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          ></polyline>
-          ${points
-            .map(
-              (point) => `
-                <circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="3.25" fill="${stroke}"></circle>
-              `,
-            )
-            .join("")}
-        </svg>
-      `;
-    };
-
-    paceChart.innerHTML = `
-      <div class="stacked-trend">
-        <div class="stacked-row">
-          <span class="card-label">Allure</span>
-          ${renderSeries(paceSeries, "#8ae6c0", "rgba(138, 230, 192, 0.35)", paceSvgId)}
-        </div>
-        <div class="stacked-row">
-          <span class="card-label">FC</span>
-          ${renderSeries(hrSeries, "#8ab4ff", "rgba(138, 180, 255, 0.32)", hrSvgId)}
-        </div>
-      </div>
-    `;
-  }
-
-  setBusy(false);
-}
-
-function renderSummary(payload) {
-  const analysis = payload.analysis || {};
-  const lines = [];
-  if (payload.coach_summary) lines.push(payload.coach_summary);
-  if (analysis.training_phase) lines.push(`Phase: ${analysis.training_phase}`);
-  if (analysis.benchmark?.event) {
-    const pace = analysis.benchmark.pace_min_per_km ? ` à ${formatPace(analysis.benchmark.pace_min_per_km)}` : "";
-    lines.push(`Benchmark retenu: ${analysis.benchmark.event}${pace}`);
-  }
-  summaryBox.textContent = lines.join("\n\n") || "Aucun plan généré pour le moment.";
-
-  planList.innerHTML = "";
-  (payload.weekly_plan || []).forEach((session) => {
-    const item = document.createElement("article");
-    item.className = "plan-item";
-    item.innerHTML = `
-      <strong>${session.day} - ${session.session_title}</strong>
-      <span>${session.duration_minutes} min | ${session.intensity}</span>
-      <p>${session.objective || ""}</p>
-      <p>${session.notes || ""}</p>
-    `;
-    planList.appendChild(item);
-  });
-}
-
-function renderQuestions(questions) {
-  questionsBox.innerHTML = "";
-  state.currentQuestions = questions || [];
-  state.answers = {};
-  if (!state.currentQuestions.length) {
-    questionsBox.innerHTML = "<p class='status-line'>Aucune question complémentaire. Tu peux générer le plan directement.</p>";
-    return;
-  }
-  state.currentQuestions.forEach((question) => {
-    const template = $("question-template");
-    const node = template.content.firstElementChild.cloneNode(true);
-    const label = node.querySelector(".question-label");
-    const input = node.querySelector("input");
-    label.textContent = question.question;
-    input.placeholder = question.key;
-    input.dataset.key = question.key;
-    input.addEventListener("input", () => {
-      state.answers[question.key] = input.value.trim();
-    });
-    questionsBox.appendChild(node);
-  });
-}
-
-async function refreshDashboard() {
-  persistSettings();
-  return withBusy("Lecture du workspace local...", async () => {
-    const payload = await requestJson(
-      `/api/status?data_dir=${encodeURIComponent(state.dataDir)}&provider=${encodeURIComponent(state.provider)}&model=${encodeURIComponent(state.model)}&base_url=${encodeURIComponent(state.baseUrl)}`,
-    );
-    renderDashboard(payload);
-  });
-}
-
-async function prepareCoach() {
-  persistSettings();
-  const goalText = $("goal-input").value.trim();
-  if (!goalText) {
-    addMessage("assistant", "J'ai besoin d'un objectif running pour démarrer.");
-    return;
-  }
-  addMessage("user", goalText);
-  const payload = await withBusy("Le coach analyse tes données locales...", async () =>
-    requestJson("/api/coach/prepare", {
-      method: "POST",
-      body: JSON.stringify({
-        goal_text: goalText,
-        data_dir: state.workspace || state.dataDir,
-        provider: state.provider,
-        model: state.model || null,
-        base_url: state.baseUrl || null,
-      }),
-    }),
-  );
-  if (payload.questions?.length) {
-    addMessage("assistant", "Je veux préciser quelques points avant de proposer un plan.");
-    renderQuestions(payload.questions);
-  } else {
-    renderQuestions([]);
-  }
-  renderDashboard(payload.dashboard || {});
-  if (payload.analysis?.analysis_summary) {
-    addMessage("assistant", payload.analysis.analysis_summary);
-  }
-}
-
-async function generatePlan() {
-  persistSettings();
-  const goalText = $("goal-input").value.trim();
-  if (!goalText) {
-    addMessage("assistant", "Entre d'abord un objectif running.");
-    return;
-  }
-  const payload = await withBusy("Le modèle prépare le plan...", async () =>
-    requestJson("/api/coach/plan", {
-      method: "POST",
-      body: JSON.stringify({
-        goal_text: goalText,
-        data_dir: state.workspace || state.dataDir,
-        provider: state.provider,
-        model: state.model || null,
-        base_url: state.baseUrl || null,
-        answers: state.answers,
-      }),
-    }),
-  );
-  if (payload.needs_clarification) {
-    renderQuestions(payload.questions);
-    addMessage("assistant", "Il me manque encore quelques réponses pour construire le plan.");
-    renderDashboard(payload.dashboard || {});
-    return;
-  }
-  addMessage("assistant", payload.coach_summary || "Plan généré.");
-  if (payload.signals_used?.length) {
-    addMessage("assistant", `Signaux utilisés: ${payload.signals_used.join(", ")}`);
-  }
-  renderSummary(payload);
-  renderDashboard(payload.dashboard || {});
-}
-
-async function importGarmin() {
-  persistSettings();
-  const sourcePath = $("source-path-input").value.trim();
-  if (!sourcePath) {
-    addMessage("assistant", "Indique le chemin local de l'export Garmin à importer.");
-    return;
-  }
-  const payload = await withBusy("Import Garmin en cours...", async () =>
-    requestJson("/api/import", {
-      method: "POST",
-      body: JSON.stringify({
-        source_path: sourcePath,
-        data_dir: state.workspace || state.dataDir,
-        run_label: "pwa-import",
-      }),
-    }),
-  );
-  addMessage(
-    "assistant",
-    `Import terminé: ${payload.artifacts_imported} artefacts, ${payload.total_records} enregistrements.`,
-  );
-  await refreshDashboard();
-}
-
-function wireEvents() {
-  const saveSettingsButton = $("save-settings-button");
-  const refreshButton = $("refresh-button");
-  const prepareButton = $("prepare-button");
-  const planButton = $("plan-button");
-  const importButton = $("import-button");
-
-  actionButtons.push(saveSettingsButton, refreshButton, prepareButton, planButton, importButton);
-
-  saveSettingsButton.addEventListener("click", async () => {
-    persistSettings();
-    addMessage("assistant", "Réglages sauvegardés localement.");
-    await refreshDashboard();
-  });
-  refreshButton.addEventListener("click", refreshDashboard);
-  prepareButton.addEventListener("click", prepareCoach);
-  planButton.addEventListener("click", generatePlan);
-  importButton.addEventListener("click", importGarmin);
-
-  installButton.addEventListener("click", async () => {
-    if (!state.installPrompt) return;
-    state.installPrompt.prompt();
-    await state.installPrompt.userChoice;
-    state.installPrompt = null;
-    installButton.classList.add("hidden");
-  });
-}
-
-async function bootstrap() {
-  setInputs();
-  wireEvents();
-  addMessage("assistant", "Commence par décrire ton objectif. Je peux ensuite poser les questions manquantes puis générer un plan.");
-  try {
-    await refreshDashboard();
-  } catch (error) {
-    setBusy(false);
-    addMessage("assistant", `Dashboard indisponible: ${error.message}`);
-    providerChip.textContent = "Provider indisponible";
-    providerChip.classList.add("warn");
-    importChip.textContent = "Données: indisponible";
-    workspaceChip.textContent = "Workspace: indisponible";
-  }
-}
-
-window.addEventListener("beforeinstallprompt", (event) => {
-  event.preventDefault();
-  state.installPrompt = event;
-  installButton.classList.remove("hidden");
-});
-
-window.addEventListener("load", () => {
-  bootstrap().catch((error) => {
-    addMessage("assistant", error.message);
-    setBusy(false);
-    providerChip.textContent = "Erreur au démarrage";
-    providerChip.classList.add("warn");
-  });
-});
-
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=20260412").catch(() => {
-      // Best effort only.
-    });
-  });
-}
+﻿const STORAGE_KEYS={workspace:'coachGarmin.workspace',provider:'coachGarmin.provider',baseUrl:'coachGarmin.baseUrl',apiKey:'coachGarmin.apiKey',sourcePath:'coachGarmin.sourcePath',goalText:'coachGarmin.goalText',theme:'coachGarmin.theme',activeSection:'coachGarmin.activeSection',showTerminalMenu:'coachGarmin.showTerminalMenu',startSection:'coachGarmin.startSection',terminalLevels:'coachGarmin.terminalLevels',terminalLogs:'coachGarmin.terminalLogs'};
+const DEFAULT_TERMINAL_LEVELS={debug:true,info:true,warn:true,error:true};
+const SECTIONS=['import','dashboard','coach','terminal','settings'];
+const sectionMeta={import:{eyebrow:'Import',title:'Import',description:'Part du dernier workspace local, vérifie la fraîcheur des données et lance un import ou un refresh si besoin.'},dashboard:{eyebrow:'Dashboard',title:'Dashboard',description:'Lis les cartes clés, ouvre une métrique en modal plein écran et regarde les tendances les plus utiles.'},coach:{eyebrow:'Chat',title:'Chat coach',description:'Décris ton objectif, laisse le coach poser les bonnes questions, puis génère un plan lié aux données locales.'},terminal:{eyebrow:'Terminal',title:'Terminal',description:'Inspecte les logs d’action, de réseau et d’erreur avec un filtre de niveau juste au-dessus.'},settings:{eyebrow:'Settings',title:'Settings',description:'Règle le thème, le provider IA, le workspace local et les options techniques utiles.'}};
+const state={workspace:localStorage.getItem(STORAGE_KEYS.workspace)||'data',provider:localStorage.getItem(STORAGE_KEYS.provider)||'ollama',baseUrl:localStorage.getItem(STORAGE_KEYS.baseUrl)||'',apiKey:localStorage.getItem(STORAGE_KEYS.apiKey)||'',sourcePath:localStorage.getItem(STORAGE_KEYS.sourcePath)||'',goalText:localStorage.getItem(STORAGE_KEYS.goalText)||'',theme:localStorage.getItem(STORAGE_KEYS.theme)||'data-lab',activeSection:localStorage.getItem(STORAGE_KEYS.activeSection)||'import',showTerminalMenu:localStorage.getItem(STORAGE_KEYS.showTerminalMenu)!=='false',startSection:localStorage.getItem(STORAGE_KEYS.startSection)||'import',terminalLevels:loadTerminalLevels(),terminalLogs:loadTerminalLogs(),currentQuestions:[],answers:{},installPrompt:null,dashboardPayload:null,retryAction:null};
+const $=(id)=>document.getElementById(id);
+const dom={providerChip:$('provider-chip'),dataChip:$('data-chip'),freshnessChip:$('freshness-chip'),objectiveChip:$('objective-chip'),workspaceChip:$('workspace-chip'),sidebarNav:$('sidebar-nav'),sectionEyebrow:$('section-eyebrow'),sectionTitle:$('section-title'),sectionDescription:$('section-description'),sectionBadges:$('section-badges'),installButton:$('install-button'),transcript:$('chat-transcript'),questions:$('questions'),coachSummary:$('coach-summary'),planList:$('plan-list'),busyBanner:$('busy-banner'),busyText:$('busy-text'),coachErrorBanner:$('coach-error-banner'),coachErrorTitle:$('coach-error-title'),coachErrorMessage:$('coach-error-message'),retryButton:$('retry-button'),dashboardCards:$('dashboard-cards'),dashboardImportState:$('dashboard-import-state'),dashboardImportDetail:$('dashboard-import-detail'),coverageCard:$('coverage-card'),coverageSubtitle:$('coverage-subtitle'),analysisCard:$('analysis-card'),analysisSubtitle:$('analysis-subtitle'),volumeTrendSummary:$('volume-trend-summary'),paceHrTrendSummary:$('pace-hr-trend-summary'),volumeTrend:$('volume-trend'),paceHrTrend:$('pace-hr-trend'),importDataState:$('import-data-state'),importFreshnessDetail:$('import-freshness-detail'),importWorkspace:$('import-workspace'),importWorkspaceDetail:$('import-workspace-detail'),importRunState:$('import-run-state'),importRunDetail:$('import-run-detail'),importAgeState:$('import-age-state'),importAgeDetail:$('import-age-detail'),coachStatusStrip:$('coach-status-strip'),terminalLog:$('terminal-log'),terminalSummary:$('terminal-summary'),dashboardModal:$('dashboard-modal'),dashboardModalTitle:$('dashboard-modal-title'),dashboardModalSubtitle:$('dashboard-modal-subtitle'),dashboardModalValue:$('dashboard-modal-value'),dashboardModalText:$('dashboard-modal-text'),dashboardModalChart:$('dashboard-modal-chart'),dashboardModalSignals:$('dashboard-modal-signals'),dashboardModalClose:$('dashboard-modal-close'),terminalClearButton:$('clear-terminal-button'),themeSelect:$('theme-select'),startSectionSelect:$('start-section-select'),showTerminalToggle:$('show-terminal-toggle'),settingsProviderSelect:$('settings-provider-select'),baseUrlInput:$('base-url-input'),apiKeyInput:$('api-key-input'),workspaceInput:$('workspace-input'),workspaceInputSettings:$('workspace-input-settings'),sourcePathInput:$('source-path-input'),sourcePathInputSettings:$('source-path-input-settings'),goalInput:$('goal-input'),coachWorkspaceInput:$('coach-workspace-chip-input'),providerSelect:$('provider-select'),saveSettingsButton:$('save-settings-button'),refreshSettingsButton:$('refresh-settings-button'),saveGoalButton:$('save-goal-button'),prepareButton:$('prepare-button'),planButton:$('plan-button'),importButton:$('import-button'),refreshButton:$('refresh-button'),useLastWorkspaceButton:$('use-last-workspace-button'),levelButtons:Array.from(document.querySelectorAll('.level-toggle')),navButtons:Array.from(document.querySelectorAll('.nav-button'))};
+const actionButtons=[dom.saveSettingsButton,dom.refreshSettingsButton,dom.saveGoalButton,dom.prepareButton,dom.planButton,dom.importButton,dom.refreshButton,dom.useLastWorkspaceButton,dom.retryButton,dom.terminalClearButton];
+function formatNumber(value,digits=0){if(value===null||value===undefined||value==='')return'-';const n=Number(value);if(Number.isNaN(n))return String(value);return new Intl.NumberFormat('fr-FR',{maximumFractionDigits:digits,minimumFractionDigits:digits}).format(n)}
+function formatKilometers(value){if(value===null||value===undefined||value==='')return'-';return `${formatNumber(value,1)} km`}
+function formatPace(value){if(value===null||value===undefined||value==='')return'-';const total=Number(value);if(!Number.isFinite(total)||total<=0)return'-';const minutes=Math.floor(total);const seconds=Math.round((total-minutes)*60);return seconds===60?`${minutes+1}:00/km`:`${minutes}:${String(seconds).padStart(2,'0')}/km`}
+function formatHeartRate(value){if(value===null||value===undefined||value==='')return'-';return `${formatNumber(value,0)} bpm`}
+function formatDateLabel(value){if(!value)return'-';const date=new Date(`${value}T00:00:00`);if(Number.isNaN(date.getTime()))return String(value);return new Intl.DateTimeFormat('fr-FR',{dateStyle:'medium'}).format(date)}
+function formatDateTime(value){if(!value)return'-';const date=new Date(value);if(Number.isNaN(date.getTime()))return String(value);return new Intl.DateTimeFormat('fr-FR',{dateStyle:'medium',timeStyle:'short'}).format(date)}
+function daysBetween(a,b){const start=new Date(`${a}T00:00:00`);const end=new Date(`${b}T00:00:00`);if(Number.isNaN(start.getTime())||Number.isNaN(end.getTime()))return null;return Math.round((end.getTime()-start.getTime())/86400000)}
+function loadTerminalLevels(){try{const raw=localStorage.getItem(STORAGE_KEYS.terminalLevels);if(!raw)return {...DEFAULT_TERMINAL_LEVELS};const parsed=JSON.parse(raw);return{debug:parsed.debug!==false,info:parsed.info!==false,warn:parsed.warn!==false,error:parsed.error!==false}}catch{return{...DEFAULT_TERMINAL_LEVELS}}}
+function loadTerminalLogs(){try{const raw=localStorage.getItem(STORAGE_KEYS.terminalLogs);if(!raw)return[];const parsed=JSON.parse(raw);return Array.isArray(parsed)?parsed.slice(-250):[]}catch{return[]}}
+function saveTerminalLogs(){localStorage.setItem(STORAGE_KEYS.terminalLogs,JSON.stringify(state.terminalLogs.slice(-250)))}
+function applyTheme(){document.documentElement.dataset.theme=state.theme}
+function currentPayload(){return state.dashboardPayload||{}}
+function currentMetrics(){return currentPayload().analysis?.metrics||{}}
+function currentImportStatus(){return currentPayload().import_status||{}}
+function currentAnalysis(){return currentPayload().analysis||{}}
+function syncInputsFromState(){dom.workspaceInput.value=state.workspace;dom.workspaceInputSettings.value=state.workspace;dom.providerSelect.value=state.provider;dom.settingsProviderSelect.value=state.provider;dom.baseUrlInput.value=state.baseUrl;dom.apiKeyInput.value=state.apiKey;dom.sourcePathInput.value=state.sourcePath;dom.sourcePathInputSettings.value=state.sourcePath;dom.goalInput.value=state.goalText;dom.themeSelect.value=state.theme;dom.startSectionSelect.value=state.startSection;dom.showTerminalToggle.checked=state.showTerminalMenu;dom.coachWorkspaceInput.value=state.workspace}
+function persistSettings(){state.workspace=(dom.workspaceInput.value||dom.workspaceInputSettings.value||'data').trim()||'data';state.provider=(dom.providerSelect.value||dom.settingsProviderSelect.value||'ollama').trim();state.baseUrl=dom.baseUrlInput.value.trim();state.apiKey=dom.apiKeyInput.value.trim();state.sourcePath=(dom.sourcePathInput.value||dom.sourcePathInputSettings.value||'').trim();state.goalText=dom.goalInput.value.trim();state.theme=dom.themeSelect.value;state.startSection=dom.startSectionSelect.value;state.showTerminalMenu=dom.showTerminalToggle.checked;localStorage.setItem(STORAGE_KEYS.workspace,state.workspace);localStorage.setItem(STORAGE_KEYS.provider,state.provider);localStorage.setItem(STORAGE_KEYS.baseUrl,state.baseUrl);localStorage.setItem(STORAGE_KEYS.apiKey,state.apiKey);localStorage.setItem(STORAGE_KEYS.sourcePath,state.sourcePath);localStorage.setItem(STORAGE_KEYS.goalText,state.goalText);localStorage.setItem(STORAGE_KEYS.theme,state.theme);localStorage.setItem(STORAGE_KEYS.activeSection,state.activeSection);localStorage.setItem(STORAGE_KEYS.startSection,state.startSection);localStorage.setItem(STORAGE_KEYS.showTerminalMenu,String(state.showTerminalMenu));localStorage.setItem(STORAGE_KEYS.terminalLevels,JSON.stringify(state.terminalLevels));applyTheme();updateNavVisibility();renderSectionHeader();renderSidebarStatus();dom.coachWorkspaceInput.value=state.workspace}
+function addTerminalLog(level,source,message,details=''){state.terminalLogs.push({timestamp:new Date().toISOString(),level,source,message,details});state.terminalLogs=state.terminalLogs.slice(-250);saveTerminalLogs();renderTerminalSection()}
+function setBusy(active,message='Analyse en cours...'){dom.busyBanner.classList.toggle('hidden',!active);dom.busyText.textContent=message;document.body.classList.toggle('is-busy',active);actionButtons.forEach((button)=>{if(button&&button!==dom.retryButton)button.disabled=active})}
+function buildProviderErrorTitle(error){if(!error)return'Le provider a renvoyé une erreur.';if(error.status===503||error.status===429)return'Provider temporairement indisponible.';return'Le provider a renvoyé une erreur.'}
+function buildProviderErrorMessage(error){if(!error)return'Réessaie ou change de provider avant de repartir.';if(error.status===503||error.status===429)return'Le provider est temporairement indisponible. Réessaie, ou change de provider dans le sélecteur avant de relancer.';return error.message||'Réessaie ou change de provider avant de repartir.'}
+function setCoachError(message,retryAction=null,title='Le provider a renvoyé une erreur.'){state.retryAction=retryAction;dom.coachErrorTitle.textContent=title;dom.coachErrorMessage.textContent=message;dom.coachErrorBanner.classList.remove('hidden');dom.retryButton.disabled=typeof retryAction!=='function'}
+function clearCoachError(){state.retryAction=null;dom.coachErrorBanner.classList.add('hidden');dom.coachErrorTitle.textContent='Le provider a renvoyé une erreur.';dom.coachErrorMessage.textContent='';dom.retryButton.disabled=true}
+function addMessage(role,text){const node=document.createElement('div');node.className=`message ${role}`;node.textContent=text;dom.transcript.appendChild(node);dom.transcript.scrollTop=dom.transcript.scrollHeight}
+function renderQuestions(questions){dom.questions.innerHTML='';state.currentQuestions=questions||[];state.answers={};if(!state.currentQuestions.length){dom.questions.innerHTML="<p class='status-line'>Aucune question complémentaire. Tu peux générer le plan directement.</p>";return}state.currentQuestions.forEach((question)=>{const template=$('question-template');const node=template.content.firstElementChild.cloneNode(true);const label=node.querySelector('.question-label');const input=node.querySelector('input');label.textContent=question.question;input.placeholder=question.key;input.dataset.key=question.key;input.addEventListener('input',()=>{state.answers[question.key]=input.value.trim()});dom.questions.appendChild(node)})}
+function renderSparkline(container,series,options={}){const values=Array.isArray(series)?series.filter((value)=>Number.isFinite(Number(value))):[];if(!values.length){container.innerHTML="<p class='status-line'>Pas encore de données exploitables.</p>";return}const width=options.width||340;const height=options.height||90;const min=Math.min(...values);const max=Math.max(...values);const span=max-min||1;const step=values.length>1?width/(values.length-1):width;const points=values.map((value,index)=>{const x=values.length>1?index*step:width/2;const y=height-((Number(value)-min)/span)*(height-16)-8;return{x,y}});const line=points.map((point)=>`${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');const area=`0,${height} ${line} ${width},${height}`;container.innerHTML=`<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="sparkline-fill-${options.id||'base'}" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="${options.fill||'rgba(138, 230, 192, 0.38)'}" /><stop offset="100%" stop-color="rgba(138, 230, 192, 0.03)" /></linearGradient></defs><polygon points="${area}" fill="url(#sparkline-fill-${options.id||'base'})"></polygon><polyline points="${line}" fill="none" stroke="${options.stroke||'#8ae6c0'}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>${points.map((point)=>`<circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="3.5" fill="${options.stroke||'#8ae6c0'}"></circle>`).join('')}</svg>`}
+function renderDualSparkline(container,seriesA,seriesB,options={}){const valuesA=Array.isArray(seriesA)?seriesA.filter((value)=>Number.isFinite(Number(value))):[];const valuesB=Array.isArray(seriesB)?seriesB.filter((value)=>Number.isFinite(Number(value))):[];if(!valuesA.length&&!valuesB.length){container.innerHTML="<p class='status-line'>Pas encore de série exploitable.</p>";return}const width=options.width||360;const height=options.height||110;const renderSeries=(series,stroke,fill,id)=>{const values=series.filter((value)=>Number.isFinite(Number(value)));if(!values.length)return'<p class="status-line">Pas de données.</p>';const min=Math.min(...values);const max=Math.max(...values);const span=max-min||1;const step=values.length>1?width/(values.length-1):width;const points=values.map((value,index)=>{const x=values.length>1?index*step:width/2;const y=height-((Number(value)-min)/span)*(height-14)-7;return{x,y}});const line=points.map((point)=>`${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');return`<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="sparkline-fill-${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="${fill}" /><stop offset="100%" stop-color="rgba(138, 180, 255, 0.02)" /></linearGradient></defs><polygon points="0,${height} ${line} ${width},${height}" fill="url(#sparkline-fill-${id})"></polygon><polyline points="${line}" fill="none" stroke="${stroke}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>${points.map((point)=>`<circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="3.1" fill="${stroke}"></circle>`).join('')}</svg>`};container.innerHTML=`<div class="stacked-trend"><div class="stacked-row"><span class="card-label">Allure</span>${renderSeries(valuesA,'#8ae6c0','rgba(138, 230, 192, 0.34)',`${options.id||'dual'}-pace`)}</div><div class="stacked-row"><span class="card-label">FC</span>${renderSeries(valuesB,'#8ab4ff','rgba(138, 180, 255, 0.32)',`${options.id||'dual'}-hr`)}</div></div>`}
+function renderSectionHeader(){const meta=sectionMeta[state.activeSection]||sectionMeta.import;dom.sectionEyebrow.textContent=meta.eyebrow;dom.sectionTitle.textContent=meta.title;dom.sectionDescription.textContent=meta.description}
+function updateNavVisibility(){dom.navButtons.forEach((button)=>{const section=button.dataset.section;button.classList.toggle('hidden',section==='terminal'&&!state.showTerminalMenu);button.classList.toggle('active',section===state.activeSection)});if(!state.showTerminalMenu&&state.activeSection==='terminal'){state.activeSection='import';localStorage.setItem(STORAGE_KEYS.activeSection,state.activeSection)}}
+function renderSidebarStatus(){const payload=currentPayload();const provider=payload.provider||{};const importStatus=currentImportStatus();const analysis=currentAnalysis();const metrics=currentMetrics();const providerLabel=provider.status==='ready'?`Provider ${provider.provider==='ollama'?'Ollama':provider.provider} prêt`:`Provider ${provider.provider||state.provider} indisponible`;dom.providerChip.textContent=providerLabel;dom.providerChip.classList.toggle('warn',provider.status!=='ready');dom.providerChip.classList.toggle('error',provider.status==='unavailable');dom.dataChip.textContent=importStatus.available?'Données locales: oui':'Données locales: non';dom.dataChip.classList.toggle('warn',!importStatus.available);const latestActivityDay=importStatus.latest_activity_day||payload.latest_day||null;if(latestActivityDay){const age=daysBetween(latestActivityDay,new Date().toISOString().slice(0,10));dom.freshnessChip.textContent=`Dernière date: ${age===null?formatDateLabel(latestActivityDay):`${formatDateLabel(latestActivityDay)} · ${age} j`}`;dom.freshnessChip.classList.toggle('warn',typeof age==='number'&&age>=7)}else{dom.freshnessChip.textContent='Dernière date: -';dom.freshnessChip.classList.add('warn')}const objective=state.goalText||analysis.principal_objective||'';dom.objectiveChip.textContent=objective?`Objectif: ${objective.slice(0,42)}${objective.length>42?'…':''}`:'Objectif: aucun';dom.objectiveChip.classList.toggle('warn',!objective);dom.workspaceChip.textContent=`Workspace: ${state.workspace}`;dom.coachWorkspaceInput.value=state.workspace;dom.sectionBadges.innerHTML='';[{label:providerLabel,warn:provider.status!=='ready'},{label:importStatus.state?`Import: ${importStatus.state}`:'Import: -',warn:importStatus.state==='empty'},{label:analysis.available?'Analyse: prête':'Analyse: en attente',warn:!analysis.available},{label:metrics.weekly_volume_km!==undefined?`Volume 7j: ${formatKilometers(metrics.weekly_volume_km)}`:'Volume 7j: -',warn:metrics.weekly_volume_km===undefined}].forEach((item)=>{const pill=document.createElement('span');pill.className=`pill pill-small${item.warn?' warn':''}`;pill.textContent=item.label;dom.sectionBadges.appendChild(pill)})}
+function setActiveSection(section,{persist=true}={}){state.activeSection=section;if(persist)localStorage.setItem(STORAGE_KEYS.activeSection,section);updateNavVisibility();renderSectionHeader();renderAllSections()}
+function renderSectionVisibility(){SECTIONS.forEach((section)=>{const node=document.getElementById(`section-${section}`);if(node)node.classList.toggle('hidden',state.activeSection!==section)})}
+function renderImportSection(){const payload=currentPayload();const importStatus=currentImportStatus();const latestRun=importStatus.latest_run||payload.health?.latest_sync_run||null;const latestDay=importStatus.latest_activity_day||payload.latest_day||null;const syncState=importStatus.sync_state||payload.health?.sync_state||{};const coverageRatio=payload.coverage_ratio;dom.importDataState.textContent=importStatus.available?(importStatus.state==='imported'?'Données locales importées':'Données locales indexées'):'Aucune donnée locale détectée';if(latestDay){const age=daysBetween(latestDay,new Date().toISOString().slice(0,10));dom.importFreshnessDetail.textContent=`Dernière activité: ${formatDateLabel(latestDay)}${age===null?'':` · ${age} jours`} · couverture coach ${coverageRatio===undefined||coverageRatio===null?'-':formatNumber(coverageRatio,2)}`;dom.importAgeState.textContent=age===null?formatDateLabel(latestDay):`${age} jours`;dom.importAgeDetail.textContent=age!==null&&age>=7?'Le jeu local semble un peu ancien. Un refresh manuel peut valoir le coup.':'La donnée locale paraît récente pour travailler dessus.';}else{dom.importFreshnessDetail.textContent='Aucune activité locale n’est encore indexée pour ce workspace.';dom.importAgeState.textContent='-';dom.importAgeDetail.textContent='Lance un import Garmin pour rendre le workspace exploitable.'}dom.importWorkspace.textContent=state.workspace;dom.importWorkspaceDetail.textContent=payload.workspace?.exists?'Le dossier local existe et le coach peut travailler dessus.':'Le dossier local n’existe pas encore dans ce workspace.';if(latestRun){dom.importRunState.textContent=latestRun.run_label||latestRun.run_id||'Import récent';dom.importRunDetail.textContent=`${latestRun.total_records||0} enregistrements · ${latestRun.dataset_count||0} datasets · ${formatDateTime(latestRun.finished_at)}`}else{dom.importRunState.textContent='Aucun import récent';dom.importRunDetail.textContent='Utilise l’import Garmin pour créer le workspace local.'}const syncSummary=[syncState.new_artifact_count!==undefined?`nouveaux: ${syncState.new_artifact_count}`:null,syncState.reused_artifact_count!==undefined?`réutilisés: ${syncState.reused_artifact_count}`:null,syncState.pending_count!==undefined?`en attente: ${syncState.pending_count}`:null].filter(Boolean);dom.importRunDetail.textContent+=syncSummary.length?` · ${syncSummary.join(' · ')}`:''}
+function dashboardCardSpecs(payload){const analysis=payload.analysis||{};const metrics=analysis.metrics||{};const trend=analysis.trend||{};const importStatus=payload.import_status||{};const latestRun=importStatus.latest_run||payload.health?.latest_sync_run||null;const benchmark=analysis.benchmark||{};const pace=metrics.average_pace_21d??analysis.inferred_paces?.threshold_pace_min_per_km??null;const latestPaceHr=trend.pace_hr_sessions?.length?trend.pace_hr_sessions[trend.pace_hr_sessions.length-1]:null;const loadSeries=trend.daily_volume?.map((row)=>row.training_load||0)||[];const volumeSeries=trend.daily_volume?.map((row)=>row.distance_km||0)||[];const paceSeries=trend.pace_hr_sessions?.map((row)=>row.pace_min_per_km||0)||[];const hrSeries=trend.pace_hr_sessions?.map((row)=>row.average_hr||0)||[];const hrTrendSeries=trend.daily_volume?.map((row)=>row.average_hr||0)||[];return[{key:'weekly-volume',title:'Volume hebdo',value:formatKilometers(metrics.weekly_volume_km??metrics.total_distance_km_7d),subtitle:`${formatNumber(metrics.weekly_running_days??metrics.recent_running_days??0)} sorties course sur 7j`,detail:'Lecture du volume récent sur le workspace local. Cette carte sert à comprendre la base d’endurance avant d’augmenter la qualité.',signals:[{label:'Dernier jour local',value:formatDateLabel(payload.latest_day||importStatus.latest_activity_day)},{label:'Dernier import',value:latestRun?formatDateTime(latestRun.finished_at):'-'}],chartType:'single',series:volumeSeries,tone:'primary'},{key:'load',title:'Charge',value:metrics.load_7d===null||metrics.load_7d===undefined?'-':formatNumber(metrics.load_7d,0),subtitle:metrics.load_28d!==null&&metrics.load_28d!==undefined?`28j ${formatNumber(metrics.load_28d,0)} · ratio ${metrics.load_ratio_7_28===null||metrics.load_ratio_7_28===undefined?'-':formatNumber(metrics.load_ratio_7_28,2)}`:'Charge 28j non disponible',detail:'La charge recentrée sur 7 jours donne une lecture rapide du stress d’entraînement. Le ratio 7j/28j aide à voir si l’accélération reste propre.',signals:[{label:'Progression delta',value:metrics.progression_delta===null||metrics.progression_delta===undefined?'-':formatNumber(metrics.progression_delta,2)},{label:'Phase',value:analysis.training_phase||'-'}],chartType:'single',series:loadSeries},{key:'load-ratio',title:'Ratio charge',value:metrics.load_ratio_7_28===null||metrics.load_ratio_7_28===undefined?'-':formatNumber(metrics.load_ratio_7_28,2),subtitle:metrics.fatigue_flag?'Fatigue détectée':'Pas de fatigue marquée',detail:'Un ratio de charge aide à repérer un accroissement trop rapide. La carte devient surtout utile quand la charge 28j et la charge 7j existent toutes les deux.',signals:[{label:'Fatigue flag',value:metrics.fatigue_flag?'Oui':'Non'},{label:'Overreaching',value:metrics.overreaching_flag?'Oui':'Non'}],chartType:'none'},{key:'resting-hr',title:'FC repos',value:formatHeartRate(metrics.resting_hr_7d),subtitle:metrics.fatigue_flag?'Lecture prudente':'Signal stable',detail:'La FC repos récente complète la lecture de la fatigue. Si elle monte en parallèle d’une charge forte, le coach doit lever le pied.',signals:[{label:'Fatigue',value:metrics.fatigue_flag?'Oui':'Non'},{label:'HRV 7j',value:metrics.hrv_7d===null||metrics.hrv_7d===undefined?'-':formatNumber(metrics.hrv_7d,1)}],chartType:'single',series:hrTrendSeries},{key:'sleep',title:'Sommeil',value:metrics.sleep_hours_7d===null||metrics.sleep_hours_7d===undefined?'-':`${formatNumber(metrics.sleep_hours_7d,1)} h`,subtitle:metrics.overreaching_flag?'Récupération à surveiller':'Sommeil récent correct',detail:'Le sommeil reste l’un des meilleurs signaux de récupération à court terme. Il sert surtout à calmer ou à autoriser la charge du jour.',signals:[{label:'Récupération',value:metrics.overreaching_flag?'À surveiller':'Correcte'},{label:'Dernière activité',value:importStatus.latest_activity_day?formatDateLabel(importStatus.latest_activity_day):'-'}],chartType:'none'},{key:'pace-hr',title:'Allure / FC',value:`${formatPace(pace)} · ${formatHeartRate(latestPaceHr?.average_hr)}`,subtitle:benchmark?.event&&benchmark?.pace_min_per_km?`${benchmark.event} repère ${formatPace(benchmark.pace_min_per_km)}`:'Allure calculée depuis l’historique',detail:'Cette carte croise l’allure et la FC observées sur les dernières sorties. C’est la base la plus utile pour ancrer les séances de qualité.',signals:[{label:'Phase',value:analysis.training_phase||'-'},{label:'Benchmark retenu',value:benchmark?.event?`${benchmark.event} · ${formatPace(benchmark.pace_min_per_km)}`:'-'}],chartType:'dual',seriesA:paceSeries,seriesB:hrSeries},{key:'hrv',title:'HRV trend',value:metrics.hrv_7d===null||metrics.hrv_7d===undefined?'-':formatNumber(metrics.hrv_7d,1),subtitle:metrics.hrv_7d?'Moyenne 7 jours':'Non disponible',detail:'La tendance HRV complète la lecture de récupération. Lorsqu’elle baisse et que la charge monte, le plan doit rester prudent.',signals:[{label:'Resting HR',value:formatHeartRate(metrics.resting_hr_7d)},{label:'Training phase',value:analysis.training_phase||'-'}],chartType:'none'},{key:'long-run',title:'Sortie longue',value:formatKilometers(metrics.long_run_km),subtitle:metrics.long_run_km?'Maximum observé sur la fenêtre':'Pas de sortie longue claire',detail:'La sortie longue donne la lecture la plus simple de la base d’endurance utile pour le coach. Elle aide aussi à éviter les semaines trop agressives.',signals:[{label:'Fitness trend',value:analysis.signal_highlights?.[0]||analysis.training_phase||'-'},{label:'Coverage',value:payload.coverage_ratio===null||payload.coverage_ratio===undefined?'-':formatNumber(payload.coverage_ratio,2)}],chartType:'single',series:volumeSeries},{key:'phase',title:'Phase coach',value:analysis.training_phase||'-',subtitle:analysis.available?'Analyse locale prête':'Analyse locale partielle',detail:analysis.summary||'Pas encore d’analyse locale assez robuste pour formuler une phase d’entraînement.',signals:(analysis.signal_highlights||[]).slice(0,4).map((text,index)=>({label:`Signal ${index+1}`,value:text})),chartType:'none'}]}
+function renderDashboardModal(card){if(!card)return;dom.dashboardModalTitle.textContent=card.title;dom.dashboardModalSubtitle.textContent=card.subtitle||'';dom.dashboardModalValue.textContent=card.value||'-';dom.dashboardModalText.innerHTML=`<p>${(card.detail||'').replace(/\n/g,'<br>')}</p>`;dom.dashboardModalSignals.innerHTML='';(card.signals||[]).forEach((signal)=>{const node=document.createElement('div');node.className='signal-line';node.innerHTML=`<strong>${signal.label}</strong><span>${signal.value||'-'}</span>`;dom.dashboardModalSignals.appendChild(node)});if(card.chartType==='single'){renderSparkline(dom.dashboardModalChart,card.series||[],{id:`modal-${card.key}`,stroke:card.key==='resting-hr'?'#8ab4ff':'#8ae6c0',fill:card.key==='resting-hr'?'rgba(138, 180, 255, 0.26)':'rgba(138, 230, 192, 0.28)',width:760,height:220})}else if(card.chartType==='dual'){renderDualSparkline(dom.dashboardModalChart,card.seriesA||[],card.seriesB||[],{id:`modal-${card.key}`,width:760,height:120})}else{dom.dashboardModalChart.innerHTML="<p class='status-line'>Cette carte n'a pas de courbe dédiée.</p>"}dom.dashboardModal.classList.remove('hidden')}
+function closeDashboardModal(){dom.dashboardModal.classList.add('hidden')}
+function renderDashboardSection(){const payload=currentPayload();const analysis=currentAnalysis();const metrics=currentMetrics();const importStatus=currentImportStatus();dom.dashboardImportState.textContent=importStatus.available?'Import local prêt':'Aucune donnée locale';dom.dashboardImportDetail.textContent=importStatus.latest_activity_day?`Dernière activité: ${formatDateLabel(importStatus.latest_activity_day)} · ${importStatus.recent_activity_count||0} activités récentes`:'Lance un import pour rendre ce dashboard exploitable.';dom.coverageCard.textContent=payload.coverage_ratio===null||payload.coverage_ratio===undefined?'-':formatNumber(payload.coverage_ratio,2);dom.coverageSubtitle.textContent=payload.coverage_ratio===null||payload.coverage_ratio===undefined?'Couverture non calculée':'Couverture coach locale';dom.analysisCard.textContent=analysis.summary||'Aucune lecture coach pour le moment.';const signalBits=[];if(analysis.training_phase)signalBits.push(`Phase: ${analysis.training_phase}`);if(metrics.hrv_7d!==null&&metrics.hrv_7d!==undefined)signalBits.push(`HRV 7j: ${formatNumber(metrics.hrv_7d,1)}`);if(metrics.long_run_km!==null&&metrics.long_run_km!==undefined)signalBits.push(`Sortie longue: ${formatKilometers(metrics.long_run_km)}`);dom.analysisSubtitle.textContent=signalBits.join(' · ')||'Analyse locale en attente.';dom.volumeTrendSummary.textContent=payload.analysis?.trend?.daily_volume?.length?`${formatKilometers((payload.analysis.trend.daily_volume||[]).reduce((sum,row)=>sum+(row.distance_km||0),0))} sur ${payload.analysis.trend.daily_volume.length} jours`:'Pas encore de série';renderSparkline(dom.volumeTrend,payload.analysis?.trend?.daily_volume?.map((row)=>row.distance_km||0)||[],{id:'volume',stroke:'#8ae6c0',fill:'rgba(138, 230, 192, 0.35)',height:96,width:360});const paceSeries=payload.analysis?.trend?.pace_hr_sessions?.map((row)=>row.pace_min_per_km||0)||[];const hrSeries=payload.analysis?.trend?.pace_hr_sessions?.map((row)=>row.average_hr||0)||[];const paceSummary=payload.analysis?.trend?.pace_hr_sessions?.length&&payload.analysis.trend.pace_hr_sessions[payload.analysis.trend.pace_hr_sessions.length-1]?`${formatPace(payload.analysis.trend.pace_hr_sessions[payload.analysis.trend.pace_hr_sessions.length-1].pace_min_per_km)} · ${formatHeartRate(payload.analysis.trend.pace_hr_sessions[payload.analysis.trend.pace_hr_sessions.length-1].average_hr)}`:'Pas encore de séries';dom.paceHrTrendSummary.textContent=paceSummary;renderDualSparkline(dom.paceHrTrend,paceSeries,hrSeries,{id:'pace-hr',width:360,height:110});dom.dashboardCards.innerHTML='';dashboardCardSpecs(payload).forEach((card)=>{const button=document.createElement('button');button.type='button';button.className=`metric-card${card.tone==='primary'?' is-primary':''}`;button.innerHTML=`<span class='card-label'>${card.title}</span><strong>${card.value}</strong><p>${card.subtitle||''}</p>`;button.addEventListener('click',()=>{addTerminalLog('info','dashboard',`Carte ouverte: ${card.title}`);renderDashboardModal(card)});dom.dashboardCards.appendChild(button)})}
+function renderCoachSection(){const payload=currentPayload();const importStatus=currentImportStatus();const analysis=currentAnalysis();const provider=payload.provider||{};const items=[importStatus.available?'Données locales prêtes':'Pas de données locales',analysis.available?'Analyse locale prête':'Analyse locale partielle',`Provider: ${provider.status==='ready'?`${provider.provider==='ollama'?'Ollama':provider.provider} prêt`:`${provider.provider||state.provider} indisponible`}`];if(state.goalText)items.push(`Objectif actif: ${state.goalText.slice(0,80)}${state.goalText.length>80?'…':''}`);dom.coachStatusStrip.innerHTML='';items.forEach((text)=>{const pill=document.createElement('span');pill.className=`pill pill-small${/indisponible|partielle|pas de données/i.test(text)?' warn':''}`;pill.textContent=text;dom.coachStatusStrip.appendChild(pill)});dom.coachWorkspaceInput.value=state.workspace;dom.providerSelect.value=state.provider;dom.transcript.dataset.empty='Le coach t’attend ici. Décris un objectif et laisse-le poser les bonnes questions.';dom.planList.dataset.empty='Aucun plan généré pour le moment.'}
+function renderTerminalSection(){const entries=state.terminalLogs.filter((entry)=>state.terminalLevels[entry.level]!==false);dom.terminalLog.innerHTML='';if(!entries.length){dom.terminalLog.dataset.empty='Aucun log visible pour le niveau sélectionné.'}else{delete dom.terminalLog.dataset.empty}entries.slice(-250).forEach((entry)=>{const node=document.createElement('article');node.className=`terminal-entry ${entry.level}`;node.innerHTML=`<div class='terminal-entry-header'><span>${formatDateTime(entry.timestamp)} · ${entry.level.toUpperCase()} · ${entry.source}</span></div><strong>${entry.message}</strong>${entry.details?`<div class='entry-message'>${entry.details}</div>`:''}`;dom.terminalLog.appendChild(node)});dom.terminalSummary.textContent=`${entries.length} entrée(s) visible(s) sur ${state.terminalLogs.length} total.`;dom.levelButtons.forEach((button)=>button.classList.toggle('active',state.terminalLevels[button.dataset.level]!==false))}
+function renderSettingsSection(){syncInputsFromState()}
+function renderSectionVisibility(){SECTIONS.forEach((section)=>{const node=document.getElementById(`section-${section}`);if(node)node.classList.toggle('hidden',state.activeSection!==section)})}
+function renderAllSections(){renderSectionVisibility();renderSidebarStatus();renderSectionHeader();renderImportSection();renderDashboardSection();renderCoachSection();renderTerminalSection();renderSettingsSection()}
+function showRetryableError(error,retryAction){setBusy(false);setCoachError(buildProviderErrorMessage(error),retryAction,buildProviderErrorTitle(error));addMessage('assistant',buildProviderErrorMessage(error))}
+async function refreshDashboard(){persistSettings();return withBusy('Lecture du workspace local...',async()=>{const payload=await requestJson(`/api/status?data_dir=${encodeURIComponent(state.workspace)}&provider=${encodeURIComponent(state.provider)}&base_url=${encodeURIComponent(state.baseUrl)}`,{},'status');state.dashboardPayload=payload;renderAllSections()})}
+async function prepareCoach(){persistSettings();const goalText=dom.goalInput.value.trim();if(!goalText){addMessage('assistant','J\'ai besoin d\'un objectif running pour démarrer.');addTerminalLog('warn','coach','Préparation impossible','Objectif manquant.');return}addMessage('user',goalText);addTerminalLog('info','coach','Préparation du coach',goalText);try{const payload=await withBusy('Le coach analyse les données locales...',async()=>requestJson('/api/coach/prepare',{method:'POST',body:JSON.stringify({goal_text:goalText,data_dir:state.workspace,provider:state.provider,base_url:state.baseUrl||null,api_key:state.apiKey||null})},'coach-prepare'));if(payload.questions?.length){addMessage('assistant','Je veux préciser quelques points avant de proposer un plan.');renderQuestions(payload.questions);addTerminalLog('info','coach','Questions générées',`${payload.questions.length} question(s)`)}else{renderQuestions([]);addTerminalLog('info','coach','Aucune clarification requise')}state.dashboardPayload=payload.dashboard||state.dashboardPayload;renderAllSections();if(payload.analysis?.analysis_summary)addMessage('assistant',payload.analysis.analysis_summary)}catch(error){showRetryableError(error,prepareCoach)}}
+function renderSummary(payload){const analysis=payload.analysis||{};const lines=[];if(payload.coach_summary)lines.push(payload.coach_summary);if(analysis.training_phase)lines.push(`Phase: ${analysis.training_phase}`);if(analysis.benchmark?.event){const pace=analysis.benchmark.pace_min_per_km?` à ${formatPace(analysis.benchmark.pace_min_per_km)}`:'';lines.push(`Benchmark retenu: ${analysis.benchmark.event}${pace}`)}dom.coachSummary.textContent=lines.join('\n\n')||'Aucun plan généré pour le moment.';dom.planList.innerHTML='';(payload.weekly_plan||[]).forEach((session)=>{const item=document.createElement('article');item.className='plan-item';item.innerHTML=`<strong>${session.day} - ${session.session_title}</strong><span>${session.duration_minutes} min | ${session.intensity}</span><p>${session.objective||''}</p><p>${session.notes||''}</p>`;dom.planList.appendChild(item)})}
+async function generatePlan(){persistSettings();const goalText=dom.goalInput.value.trim();if(!goalText){addMessage('assistant','Entre d\'abord un objectif running.');addTerminalLog('warn','coach','Plan impossible','Objectif manquant.');return}addTerminalLog('info','coach','Génération du plan',goalText);try{const payload=await withBusy('Le modèle prépare le plan...',async()=>requestJson('/api/coach/plan',{method:'POST',body:JSON.stringify({goal_text:goalText,data_dir:state.workspace,provider:state.provider,base_url:state.baseUrl||null,api_key:state.apiKey||null,answers:state.answers})},'coach-plan'));if(payload.needs_clarification){renderQuestions(payload.questions);addMessage('assistant','Il me manque encore quelques réponses pour construire le plan.');addTerminalLog('warn','coach','Clarifications manquantes',`${payload.questions.length} question(s)`);state.dashboardPayload=payload.dashboard||state.dashboardPayload;renderAllSections();return}addMessage('assistant',payload.coach_summary||'Plan généré.');if(payload.signals_used?.length)addMessage('assistant',`Signaux utilisés: ${payload.signals_used.join(', ')}`);renderSummary(payload);state.dashboardPayload=payload.dashboard||state.dashboardPayload;renderAllSections();addTerminalLog('info','coach','Plan généré',payload.plan_path||'plan local enregistré')}catch(error){showRetryableError(error,generatePlan)}}
+async function importGarmin(){persistSettings();const sourcePath=(dom.sourcePathInput.value||dom.sourcePathInputSettings.value).trim();if(!sourcePath){addMessage('assistant','Indique le chemin local de l\'export Garmin à importer.');addTerminalLog('warn','import','Import impossible','Chemin source manquant.');return}addTerminalLog('info','import','Import Garmin demandé',sourcePath);try{const payload=await withBusy('Import Garmin en cours...',async()=>requestJson('/api/import',{method:'POST',body:JSON.stringify({source_path:sourcePath,data_dir:state.workspace,run_label:'pwa-import'})},'import'));state.dashboardPayload=payload.dashboard||state.dashboardPayload;addMessage('assistant',`Import terminé: ${payload.artifacts_imported} artefacts, ${payload.total_records} enregistrements.`);addTerminalLog('info','import','Import terminé',`${payload.artifacts_imported||0} artefacts, ${payload.total_records||0} enregistrements`);await refreshDashboard()}catch(error){addTerminalLog('error','import','Import échoué',error.message);showRetryableError(error,importGarmin)}}
+function saveGoal(){persistSettings();addTerminalLog('info','coach','Objectif enregistré',state.goalText||'vide');addMessage('assistant','Objectif enregistré localement.');renderSidebarStatus()}
+function useLastWorkspace(){const lastWorkspace=localStorage.getItem(STORAGE_KEYS.workspace)||state.workspace||'data';state.workspace=lastWorkspace;syncInputsFromState();persistSettings();addMessage('assistant',`Dernier workspace local réutilisé: ${state.workspace}`);addTerminalLog('info','workspace','Workspace local réutilisé',state.workspace);refreshDashboard().catch(()=>{})}
+function clearTerminal(){state.terminalLogs=[];saveTerminalLogs();renderTerminalSection();addTerminalLog('info','terminal','Journal nettoyé')}
+function updateTerminalLevel(level){state.terminalLevels[level]=!state.terminalLevels[level];if(Object.values(state.terminalLevels).every((value)=>value===false)){state.terminalLevels[level]=true}localStorage.setItem(STORAGE_KEYS.terminalLevels,JSON.stringify(state.terminalLevels));renderTerminalSection()}
+function wireEvents(){dom.navButtons.forEach((button)=>button.addEventListener('click',()=>setActiveSection(button.dataset.section)));dom.saveSettingsButton.addEventListener('click',async()=>{persistSettings();addMessage('assistant','Réglages sauvegardés localement.');addTerminalLog('info','settings','Réglages sauvegardés');await refreshDashboard()});dom.refreshSettingsButton.addEventListener('click',refreshDashboard);dom.saveGoalButton.addEventListener('click',saveGoal);dom.prepareButton.addEventListener('click',prepareCoach);dom.planButton.addEventListener('click',generatePlan);dom.importButton.addEventListener('click',importGarmin);dom.refreshButton.addEventListener('click',refreshDashboard);dom.useLastWorkspaceButton.addEventListener('click',useLastWorkspace);dom.retryButton.addEventListener('click',()=>{if(typeof state.retryAction==='function'){addTerminalLog('info','retry','Nouvelle tentative demandée');state.retryAction()}});dom.terminalClearButton.addEventListener('click',clearTerminal);dom.levelButtons.forEach((button)=>button.addEventListener('click',()=>updateTerminalLevel(button.dataset.level)));dom.themeSelect.addEventListener('change',()=>{persistSettings();addTerminalLog('info','settings',`Thème ${state.theme}`)});dom.startSectionSelect.addEventListener('change',()=>{persistSettings();addTerminalLog('info','settings',`Section de départ ${state.startSection}`)});dom.showTerminalToggle.addEventListener('change',()=>{persistSettings();addTerminalLog('info','settings',`Terminal menu ${state.showTerminalMenu?'visible':'masqué'}`);updateNavVisibility();renderAllSections()});dom.providerSelect.addEventListener('change',()=>{state.provider=dom.providerSelect.value;dom.settingsProviderSelect.value=state.provider;persistSettings();addTerminalLog('info','provider',`Provider actif ${state.provider}`);refreshDashboard().catch(()=>{})});dom.settingsProviderSelect.addEventListener('change',()=>{state.provider=dom.settingsProviderSelect.value;dom.providerSelect.value=state.provider;persistSettings();addTerminalLog('info','provider',`Provider actif ${state.provider}`);refreshDashboard().catch(()=>{})});dom.dashboardModal.addEventListener('click',(event)=>{if(event.target===dom.dashboardModal)closeDashboardModal()});dom.dashboardModalClose.addEventListener('click',closeDashboardModal);window.addEventListener('keydown',(event)=>{if(event.key==='Escape')closeDashboardModal()});[dom.workspaceInput,dom.workspaceInputSettings,dom.sourcePathInput,dom.sourcePathInputSettings,dom.baseUrlInput,dom.apiKeyInput,dom.goalInput].forEach((input)=>{input.addEventListener('input',()=>{persistSettings();renderSidebarStatus();if(input===dom.goalInput)dom.coachWorkspaceInput.value=state.workspace})})}
+async function bootstrap(){applyTheme();syncInputsFromState();wireEvents();updateNavVisibility();renderSectionHeader();renderSidebarStatus();addMessage('assistant','Commence par décrire ton objectif. Je peux ensuite poser les questions manquantes puis générer un plan.');addTerminalLog('info','app','Application démarrée',`Workspace ${state.workspace}`);setActiveSection(state.startSection||'import',{persist:false});try{await refreshDashboard()}catch(error){setBusy(false);addMessage('assistant',`Dashboard indisponible: ${error.message}`);addTerminalLog('error','status','Dashboard indisponible',error.message);dom.providerChip.textContent='Provider indisponible';dom.providerChip.classList.add('error');dom.dataChip.textContent='Données: indisponible';dom.workspaceChip.textContent='Workspace: indisponible'}renderAllSections()}
+window.addEventListener('beforeinstallprompt',(event)=>{event.preventDefault();state.installPrompt=event;dom.installButton.classList.remove('hidden')});
+dom.installButton.addEventListener('click',async()=>{if(!state.installPrompt)return;state.installPrompt.prompt();await state.installPrompt.userChoice;state.installPrompt=null;dom.installButton.classList.add('hidden');addTerminalLog('info','pwa','Installation PWA demandée')});
+window.addEventListener('load',()=>{bootstrap().catch((error)=>{addMessage('assistant',error.message);addTerminalLog('error','app','Erreur au démarrage',error.message);setBusy(false);dom.providerChip.textContent='Erreur au démarrage';dom.providerChip.classList.add('error')})});
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js?v=20260413').catch(()=>{/* best effort */})})}

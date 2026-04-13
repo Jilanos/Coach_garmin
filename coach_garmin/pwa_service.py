@@ -433,15 +433,20 @@ def _build_handler(config: CoachPwaConfig):
                 if not goal_text:
                     self._send_json({"error": "goal_text is required"}, status=HTTPStatus.BAD_REQUEST)
                     return
-                result = generate_coach_plan(
-                    data_dir=data_dir,
-                    goal_text=goal_text,
-                    answers=dict(payload.get("answers") or {}),
-                    provider=str(payload.get("provider") or "ollama"),
-                    model=payload.get("model"),
-                    base_url=payload.get("base_url"),
-                    api_key=payload.get("api_key"),
-                )
+                try:
+                    result = generate_coach_plan(
+                        data_dir=data_dir,
+                        goal_text=goal_text,
+                        answers=dict(payload.get("answers") or {}),
+                        provider=str(payload.get("provider") or "ollama"),
+                        model=payload.get("model"),
+                        base_url=payload.get("base_url"),
+                        api_key=payload.get("api_key"),
+                    )
+                except Exception as exc:  # pragma: no cover - surfaced in UI
+                    status = HTTPStatus.SERVICE_UNAVAILABLE if _is_provider_issue(exc) else HTTPStatus.BAD_REQUEST
+                    self._send_json({"error": str(exc), "retryable": status == HTTPStatus.SERVICE_UNAVAILABLE}, status=status)
+                    return
                 self._send_json(result)
                 return
             self._send_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
@@ -478,3 +483,20 @@ def _resolve_static_path(web_root: Path, request_path: str) -> Path | None:
     except ValueError:
         return None
     return candidate
+
+
+def _is_provider_issue(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return any(
+        token in message
+        for token in (
+            "gemini request failed with http 503",
+            "gemini request failed with http 429",
+            "openai request failed with http 503",
+            "openai request failed with http 429",
+            "ollama request failed with http 503",
+            "ollama request failed with http 429",
+            "unavailable",
+            "temporarily unavailable",
+        )
+    )

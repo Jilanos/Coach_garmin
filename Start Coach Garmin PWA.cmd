@@ -9,6 +9,6 @@ echo Starting Coach Garmin PWA server...
 start "Coach Garmin PWA" "%PYTHON_EXE%" -m coach_garmin web serve --web-root web --data-dir data
 
 timeout /t 2 /nobreak >nul
-start "" "http://127.0.0.1:5284/?v=20260412"
+start "" "http://127.0.0.1:5284/?v=20260413"
 
 endlocal

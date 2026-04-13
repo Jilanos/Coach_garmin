@@ -117,9 +117,12 @@ Start Coach Garmin PWA.cmd
 The PWA shell:
 
 - runs offline-first in a local browser tab
+- uses a left sidebar with Import, Dashboard, Chat, Terminal, and Settings
+- keeps the last local workspace and shows data freshness directly in the UI
 - stores workspace preferences locally in the browser
 - lets you choose the AI provider between Ollama, Gemini, and OpenAI
-- offers a compact dashboard for app health, import status, and analysis metrics
+- offers a dashboard with clickable cards and a full-screen detail modal
+- exposes a filtered terminal view for logs, actions, and provider debugging
 - exposes the same local import and coaching flows through `/api/*`
 - is intentionally simple in the first version so it can later be wrapped for desktop or Android
 

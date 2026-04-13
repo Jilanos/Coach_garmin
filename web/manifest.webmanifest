@@ -2,7 +2,7 @@
   "name": "Coach Garmin",
   "short_name": "Coach Garmin",
   "description": "Local-first coaching PWA for Garmin data",
-  "start_url": "/",
+  "start_url": "/?v=20260413",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b1020",

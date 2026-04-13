@@ -1,132 +1,152 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="data-lab">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0b1020" />
     <meta name="description" content="Coach ultra perso local-first" />
-    <link rel="manifest" href="/manifest.webmanifest?v=20260412" />
-    <link rel="icon" href="/icon.svg?v=20260412" type="image/svg+xml" />
-    <link rel="stylesheet" href="/styles.css?v=20260412" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20260413" />
+    <link rel="icon" href="/icon.svg?v=20260413" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css?v=20260413" />
     <title>Coach ultra perso</title>
   </head>
   <body>
     <div class="app-shell">
-      <header class="hero">
-        <div>
+      <aside class="sidebar">
+        <div class="brand-block">
           <p class="eyebrow">Coach ultra perso</p>
-          <h1>Coach ultra perso.</h1>
-          <p class="lede">
-            Un coach running local-first qui garde tes données chez toi, suit tes signaux d'entraînement et
-            te répond clairement sans noyer l'écran.
+          <h1>Coach ultra perso</h1>
+          <p class="brand-copy">
+            Workspace local-first pour importer, analyser et coacher avec tes donn&eacute;es Garmin.
           </p>
         </div>
-        <div class="install-card">
-          <div class="status-row">
-            <span class="pill pill-small" id="provider-chip">Provider: chargement...</span>
-            <span class="pill pill-small" id="import-chip">Données: -</span>
-          </div>
+
+        <div class="sidebar-status">
+          <span class="pill pill-small" id="provider-chip">Provider: chargement...</span>
+          <span class="pill pill-small" id="data-chip">Donn&eacute;es: -</span>
+          <span class="pill pill-small" id="freshness-chip">Fra&icirc;cheur: -</span>
+          <span class="pill pill-small" id="objective-chip">Objectif: -</span>
+        </div>
+
+        <nav class="sidebar-nav" id="sidebar-nav" aria-label="Navigation principale">
+          <button type="button" class="nav-button" data-section="import">
+            <span>Import</span>
+            <small>Workspace local</small>
+          </button>
+          <button type="button" class="nav-button" data-section="dashboard">
+            <span>Dashboard</span>
+            <small>M&eacute;triques et tendances</small>
+          </button>
+          <button type="button" class="nav-button" data-section="coach">
+            <span>Chat</span>
+            <small>Coaching et plan</small>
+          </button>
+          <button type="button" class="nav-button" data-section="terminal">
+            <span>Terminal</span>
+            <small>Logs et debug</small>
+          </button>
+          <button type="button" class="nav-button" data-section="settings">
+            <span>Settings</span>
+            <small>Options techniques</small>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
           <div class="workspace-note" id="workspace-chip">Workspace: -</div>
           <button id="install-button" class="ghost-button hidden" type="button">Installer l'app</button>
-          <p class="fine-print">PWA installable, offline-first, données locales par défaut.</p>
+          <p class="fine-print">PWA installable, offline-first, donn&eacute;es locales par d&eacute;faut.</p>
         </div>
-      </header>
+      </aside>
 
-      <main class="layout">
-        <section class="panel chat-panel">
-          <div class="panel-header">
-            <h2>Chat coach</h2>
-            <p>Décris ton objectif, réponds aux questions, puis lance le plan.</p>
+      <main class="workspace">
+        <header class="workspace-header">
+          <div>
+            <p class="workspace-eyebrow" id="section-eyebrow">Import</p>
+            <h2 id="section-title">Import</h2>
+            <p class="workspace-description" id="section-description">
+              D&eacute;marre ici pour voir les donn&eacute;es locales, la derni&egrave;re date import&eacute;e et lancer un refresh si besoin.
+            </p>
           </div>
+          <div class="workspace-badges" id="section-badges"></div>
+        </header>
 
-          <div class="busy-banner hidden" id="busy-banner" aria-live="polite">
-            <span class="busy-spinner" aria-hidden="true"></span>
-            <span id="busy-text">Analyse en cours...</span>
-          </div>
-
-          <div class="chat-transcript" id="chat-transcript" aria-live="polite"></div>
-
-          <div class="composer">
-            <label>
-              Objectif
-              <textarea id="goal-input" rows="4" placeholder="Ex. Je vise un 10 km en sub 40 dans 12 semaines"></textarea>
-            </label>
-            <div class="grid-2">
-              <label>
-                Provider IA
-                <select id="provider-select">
-                  <option value="ollama">Ollama</option>
-                  <option value="gemini">Gemini</option>
-                  <option value="openai">OpenAI</option>
-                </select>
-              </label>
-              <label>
-                Modèle
-                <input id="model-input" type="text" placeholder="qwen2.5:7b" />
-              </label>
+        <div class="workspace-body">
+          <section class="workspace-section" id="section-import" data-section="import">
+            <div class="section-grid">
+              <article class="info-card spotlight-card">
+                <span class="card-label">Workflow local</span>
+                <strong id="import-data-state">Aucune donn&eacute;e d&eacute;tect&eacute;e</strong>
+                <p id="import-freshness-detail">Le workspace local n'a pas encore &eacute;t&eacute; analys&eacute;.</p>
+              </article>
+              <article class="info-card">
+                <span class="card-label">Workspace courant</span>
+                <strong id="import-workspace">-</strong>
+                <p id="import-workspace-detail">Le dossier utilis&eacute; pour l'analytics et le coach.</p>
+              </article>
+              <article class="info-card">
+                <span class="card-label">Dernier import</span>
+                <strong id="import-run-state">-</strong>
+                <p id="import-run-detail">Aucun import r&eacute;cent n'est disponible.</p>
+              </article>
+              <article class="info-card">
+                <span class="card-label">Fra&icirc;cheur</span>
+                <strong id="import-age-state">-</strong>
+                <p id="import-age-detail">La date la plus r&eacute;cente est utile pour juger si un refresh est n&eacute;cessaire.</p>
+              </article>
             </div>
-            <div class="grid-2">
-              <label>
-                Dossier local
-                <input id="data-dir-input" type="text" placeholder="data" />
-              </label>
-              <label>
-                Source Garmin
-                <input id="source-path-input" type="text" placeholder="D:\\Transfert PC thèse\\garmin-export" />
-              </label>
-            </div>
-            <div class="actions">
-              <button id="prepare-button" class="primary-button" type="button">Poser les questions</button>
-              <button id="plan-button" class="secondary-button" type="button">Générer le plan</button>
-              <button id="import-button" class="secondary-button" type="button">Importer Garmin</button>
-            </div>
-          </div>
 
-          <div class="questions" id="questions"></div>
-        </section>
+            <div class="control-panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Importer ou rafra&icirc;chir</h3>
+                  <p>Le workflow part du dernier workspace local, avec un choix manuel possible.</p>
+                </div>
+              </div>
+              <div class="grid-2">
+                <label>
+                  Dossier local de travail
+                  <input id="workspace-input" type="text" placeholder="data" />
+                </label>
+                <label>
+                  Source Garmin locale
+                  <input id="source-path-input" type="text" placeholder="D:\\Transfert PC th&egrave;se\\garmin-export" />
+                </label>
+              </div>
+              <div class="actions">
+                <button id="use-last-workspace-button" class="secondary-button" type="button">R&eacute;utiliser le dernier workspace</button>
+                <button id="import-button" class="primary-button" type="button">Importer Garmin</button>
+                <button id="refresh-button" class="secondary-button" type="button">Rafra&icirc;chir l'&eacute;tat</button>
+              </div>
+            </div>
+          </section>
 
-        <aside class="sidebar">
-          <section class="panel dashboard-panel">
+          <section class="workspace-section hidden" id="section-dashboard" data-section="dashboard">
+            <div class="section-grid">
+              <article class="info-card spotlight-card">
+                <span class="card-label">Lecture coach</span>
+                <strong id="analysis-card">-</strong>
+                <p id="analysis-subtitle">-</p>
+              </article>
+              <article class="info-card">
+                <span class="card-label">Import local</span>
+                <strong id="dashboard-import-state">-</strong>
+                <p id="dashboard-import-detail">-</p>
+              </article>
+              <article class="info-card">
+                <span class="card-label">Couverture</span>
+                <strong id="coverage-card">-</strong>
+                <p id="coverage-subtitle">-</p>
+              </article>
+            </div>
+
             <div class="panel-header">
-              <h2>Dashboard</h2>
-              <p>État santé, import et métriques d'analyse.</p>
+              <div>
+                <h3>M&eacute;triques cl&eacute;s</h3>
+                <p>Six &agrave; neuf cartes, chacune ouvrable en modal plein &eacute;cran pour d&eacute;tailler les tendances.</p>
+              </div>
             </div>
-            <div class="dashboard-status" id="dashboard-status">
-              <div id="workspace-status-line">Workspace: -</div>
-              <div id="import-status-line">Import: -</div>
-            </div>
-            <div class="metric-grid">
-              <article class="metric-card">
-                <span class="card-label">Volume hebdo</span>
-                <strong id="weekly-volume-card">-</strong>
-                <p id="weekly-volume-subtitle">-</p>
-              </article>
-              <article class="metric-card">
-                <span class="card-label">Charge</span>
-                <strong id="load-card">-</strong>
-                <p id="load-subtitle">-</p>
-              </article>
-              <article class="metric-card">
-                <span class="card-label">FC repos</span>
-                <strong id="resting-hr-card">-</strong>
-                <p id="resting-hr-subtitle">-</p>
-              </article>
-              <article class="metric-card">
-                <span class="card-label">Sommeil</span>
-                <strong id="sleep-card">-</strong>
-                <p id="sleep-subtitle">-</p>
-              </article>
-              <article class="metric-card">
-                <span class="card-label">Allure / FC</span>
-                <strong id="pace-hr-card">-</strong>
-                <p id="pace-hr-subtitle">-</p>
-              </article>
-              <article class="metric-card">
-                <span class="card-label">FC max estimée</span>
-                <strong id="max-hr-card">-</strong>
-                <p id="max-hr-subtitle">-</p>
-              </article>
-            </div>
+            <div id="dashboard-cards" class="metric-grid"></div>
+
             <div class="trend-grid">
               <article class="trend-card">
                 <div class="trend-header">
@@ -142,51 +162,173 @@
                 <div class="trend-header">
                   <div>
                     <span class="card-label">Courbe allure / FC</span>
-                    <strong>Dernières sorties</strong>
+                    <strong>Derni&egrave;res sorties</strong>
                   </div>
                   <p id="pace-hr-trend-summary">-</p>
                 </div>
                 <div id="pace-hr-trend" class="sparkline"></div>
               </article>
             </div>
-            <article class="insight-card">
-              <span class="card-label">Lecture coach</span>
-              <strong id="analysis-card">-</strong>
-              <p id="analysis-subtitle">-</p>
-            </article>
           </section>
 
-          <section class="panel settings-panel">
-            <div class="panel-header">
-              <h2>Réglages</h2>
-              <p>Dossier local et provider IA.</p>
+          <section class="workspace-section hidden" id="section-coach" data-section="coach">
+            <div class="coach-status-strip" id="coach-status-strip"></div>
+
+            <div class="busy-banner hidden" id="busy-banner" aria-live="polite">
+              <span class="busy-spinner" aria-hidden="true"></span>
+              <div class="busy-copy">
+                <span id="busy-text">Analyse en cours...</span>
+                <div class="busy-bar" aria-hidden="true"><span></span></div>
+              </div>
             </div>
-            <div class="grid-1">
+
+            <div class="error-banner hidden" id="coach-error-banner" aria-live="polite">
+              <div>
+                <strong id="coach-error-title">Le provider a renvoy&eacute; une erreur.</strong>
+                <p id="coach-error-message">R&eacute;essaie ou change de provider avant de repartir.</p>
+              </div>
+              <button id="retry-button" class="secondary-button" type="button">R&eacute;essayer</button>
+            </div>
+
+            <div class="chat-transcript" id="chat-transcript" aria-live="polite"></div>
+
+            <div class="questions" id="questions"></div>
+
+            <div class="composer">
               <label>
-                Dossier de travail local
-                <input id="workspace-input" type="text" placeholder="data" />
+                Objectif actif
+                <textarea id="goal-input" rows="4" placeholder="Ex. Je vise un 10 km en sub 40 dans 12 semaines"></textarea>
+              </label>
+              <div class="grid-2">
+                <label>
+                  Provider IA
+                  <select id="provider-select">
+                    <option value="ollama">Ollama</option>
+                    <option value="gemini">Gemini</option>
+                    <option value="openai">OpenAI</option>
+                  </select>
+                </label>
+                <label>
+                  Workspace local
+                  <input id="coach-workspace-chip-input" type="text" readonly />
+                </label>
+              </div>
+              <div class="actions">
+                <button id="save-goal-button" class="secondary-button" type="button">Enregistrer l'objectif</button>
+                <button id="prepare-button" class="primary-button" type="button">Poser les questions</button>
+                <button id="plan-button" class="secondary-button" type="button">G&eacute;n&eacute;rer le plan</button>
+              </div>
+            </div>
+
+            <div class="summary-box" id="coach-summary">Aucun plan g&eacute;n&eacute;r&eacute; pour le moment.</div>
+            <div id="plan-list" class="plan-list"></div>
+          </section>
+
+          <section class="workspace-section hidden" id="section-terminal" data-section="terminal">
+            <div class="panel-header">
+              <div>
+                <h3>Terminal</h3>
+                <p>Logs applicatifs, r&eacute;seau, erreurs et actions utilisateur avec filtre par niveau au-dessus.</p>
+              </div>
+              <button id="clear-terminal-button" class="secondary-button" type="button">Effacer</button>
+            </div>
+            <div class="terminal-toolbar">
+              <div class="terminal-levels" id="terminal-levels" role="group" aria-label="Filtrer les logs">
+                <button type="button" class="level-toggle active" data-level="debug">Debug</button>
+                <button type="button" class="level-toggle active" data-level="info">Info</button>
+                <button type="button" class="level-toggle active" data-level="warn">Warn</button>
+                <button type="button" class="level-toggle active" data-level="error">Error</button>
+              </div>
+              <div class="terminal-summary" id="terminal-summary">Aucun log pour le moment.</div>
+            </div>
+            <div id="terminal-log" class="terminal-log"></div>
+          </section>
+
+          <section class="workspace-section hidden" id="section-settings" data-section="settings">
+            <div class="panel-header">
+              <div>
+                <h3>Settings</h3>
+                <p>Les options techniques utiles pour piloter le workspace local et le provider IA.</p>
+              </div>
+            </div>
+            <div class="settings-grid">
+              <label>
+                Th&egrave;me
+                <select id="theme-select">
+                  <option value="data-lab">Data Lab</option>
+                  <option value="night-ops">Night Ops</option>
+                  <option value="paper">Paper</option>
+                  <option value="forest">Forest</option>
+                  <option value="contrast">Contrast</option>
+                </select>
+              </label>
+              <label>
+                Section de d&eacute;part
+                <select id="start-section-select">
+                  <option value="import">Import</option>
+                  <option value="dashboard">Dashboard</option>
+                  <option value="coach">Chat</option>
+                  <option value="terminal">Terminal</option>
+                  <option value="settings">Settings</option>
+                </select>
+              </label>
+              <label class="switch-row">
+                <span>Afficher le terminal dans le menu</span>
+                <input id="show-terminal-toggle" type="checkbox" checked />
+              </label>
+              <label>
+                Provider IA
+                <select id="settings-provider-select">
+                  <option value="ollama">Ollama</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="openai">OpenAI</option>
+                </select>
               </label>
               <label>
                 Base URL du provider
                 <input id="base-url-input" type="text" placeholder="http://127.0.0.1:11434" />
               </label>
-              <div class="actions">
-                <button id="save-settings-button" class="primary-button" type="button">Sauvegarder</button>
-                <button id="refresh-button" class="secondary-button" type="button">Actualiser</button>
-              </div>
+              <label>
+                Cl&eacute; API optionnelle
+                <input id="api-key-input" type="password" placeholder="Optionnel, selon le provider" />
+              </label>
+              <label>
+                Dossier de travail local
+                <input id="workspace-input-settings" type="text" placeholder="data" />
+              </label>
+              <label>
+                Source Garmin locale
+                <input id="source-path-input-settings" type="text" placeholder="D:\\Transfert PC th&egrave;se\\garmin-export" />
+              </label>
+            </div>
+            <div class="actions">
+              <button id="save-settings-button" class="primary-button" type="button">Sauvegarder</button>
+              <button id="refresh-settings-button" class="secondary-button" type="button">Actualiser l'&eacute;tat</button>
             </div>
           </section>
-
-          <section class="panel plan-panel">
-            <div class="panel-header">
-              <h2>Résumé coach</h2>
-              <p>Lecture rapide des derniers signaux et du plan.</p>
-            </div>
-            <div id="coach-summary" class="summary-box">Aucun plan généré pour le moment.</div>
-            <div id="plan-list" class="plan-list"></div>
-          </section>
-        </aside>
+        </div>
       </main>
+    </div>
+
+    <div id="dashboard-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dashboard-modal-title">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div>
+            <span class="card-label">Analyse d&eacute;taill&eacute;e</span>
+            <h3 id="dashboard-modal-title">-</h3>
+            <p id="dashboard-modal-subtitle">-</p>
+          </div>
+          <button id="dashboard-modal-close" class="ghost-button" type="button">Fermer</button>
+        </div>
+        <div class="modal-grid">
+          <div class="modal-main">
+            <div id="dashboard-modal-value" class="modal-value">-</div>
+            <div id="dashboard-modal-text" class="modal-copy"></div>
+          </div>
+          <div id="dashboard-modal-chart" class="modal-chart"></div>
+        </div>
+        <div id="dashboard-modal-signals" class="modal-signals"></div>
+      </div>
     </div>
 
     <template id="question-template">
@@ -196,6 +338,6 @@
       </label>
     </template>
 
-    <script src="/app.js?v=20260412" type="module"></script>
+    <script src="/app.js?v=20260413" type="module"></script>
   </body>
 </html>

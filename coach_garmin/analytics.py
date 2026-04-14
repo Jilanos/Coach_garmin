@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -212,6 +213,410 @@ def _activity_speed_mps(duration_seconds: float | None, distance_meters: float |
     if duration_seconds <= 0 or distance_meters <= 0:
         return None
     return distance_meters / duration_seconds
+
+
+def _safe_json_loads(value: str | None) -> dict[str, Any]:
+    if not value:
+        return {}
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _percentile(values: list[float], percentile: float) -> float | None:
+    filtered = sorted(value for value in values if value is not None)
+    if not filtered:
+        return None
+    if len(filtered) == 1:
+        return round(float(filtered[0]), 2)
+    rank = (len(filtered) - 1) * percentile
+    lower = math.floor(rank)
+    upper = math.ceil(rank)
+    if lower == upper:
+        return round(float(filtered[int(rank)]), 2)
+    lower_value = float(filtered[lower])
+    upper_value = float(filtered[upper])
+    return round(lower_value + (upper_value - lower_value) * (rank - lower), 2)
+
+
+def _weighted_median(samples: list[tuple[float, float]]) -> float | None:
+    filtered = [(float(value), max(float(weight), 0.0)) for value, weight in samples if value is not None and weight is not None]
+    if not filtered:
+        return None
+    filtered.sort(key=lambda item: item[0])
+    total_weight = sum(weight for _, weight in filtered)
+    if total_weight <= 0:
+        return round(filtered[len(filtered) // 2][0], 2)
+    target = total_weight / 2.0
+    cumulative = 0.0
+    for value, weight in filtered:
+        cumulative += weight
+        if cumulative >= target:
+            return round(value, 2)
+    return round(filtered[-1][0], 2)
+
+
+def _weighted_isotonic_non_decreasing(values: list[float], weights: list[float]) -> list[float]:
+    if not values:
+        return []
+    blocks: list[list[float]] = []
+    for value, weight in zip(values, weights):
+        current_value = float(value)
+        current_weight = max(float(weight), 0.0) or 1.0
+        blocks.append([current_value, current_weight, 1.0])
+        while len(blocks) >= 2 and blocks[-2][0] > blocks[-1][0]:
+            right_value, right_weight, right_count = blocks.pop()
+            left_value, left_weight, left_count = blocks.pop()
+            merged_weight = left_weight + right_weight
+            merged_value = ((left_value * left_weight) + (right_value * right_weight)) / merged_weight
+            blocks.append([merged_value, merged_weight, left_count + right_count])
+    result: list[float] = []
+    for value, _, count in blocks:
+        result.extend([round(value, 2)] * max(1, int(count)))
+    return result[: len(values)]
+
+
+def _unwrap_split_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
+    current: Any = candidate
+    for key in (
+        "splitJsonData",
+        "splitData",
+        "measurement",
+        "metrics",
+        "data",
+        "lapData",
+        "lap",
+    ):
+        if isinstance(current, dict) and isinstance(current.get(key), dict):
+            current = current[key]
+    return current if isinstance(current, dict) else candidate
+
+
+def _extract_running_cadence_spm(record: dict[str, Any]) -> float | None:
+    run_cadence = _parse_float(
+        _first(
+            record,
+            "avgRunCadence",
+            "averageRunCadence",
+            "WEIGHTED_MEAN_RUNCADENCE",
+            "WEIGHTED_MEAN_RUN_CADENCE",
+            "runCadence",
+            "cadence",
+        )
+    )
+    if run_cadence is not None:
+        return run_cadence
+    double_cadence = _parse_float(
+        _first(
+            record,
+            "avgDoubleCadence",
+            "averageDoubleCadence",
+            "WEIGHTED_MEAN_DOUBLE_CADENCE",
+            "WEIGHTED_MEAN_DOUBLECADENCE",
+            "doubleCadence",
+        )
+    )
+    if double_cadence is None:
+        return None
+    return round(double_cadence / 2.0, 2) if double_cadence > 120 else round(double_cadence, 2)
+
+
+def _is_running_type(activity_type: str | None) -> bool:
+    normalized = (activity_type or "").lower()
+    return normalized in {"running", "trail_running", "treadmill_running", "indoor_running"}
+
+
+def _is_cycling_type(activity_type: str | None) -> bool:
+    normalized = (activity_type or "").lower()
+    return normalized in {
+        "cycling",
+        "bike",
+        "biking",
+        "road_biking",
+        "mountain_biking",
+        "indoor_cycling",
+        "virtual_ride",
+        "ebike",
+        "gravel_cycling",
+    }
+
+
+def _is_strength_type(activity_type: str | None) -> bool:
+    normalized = (activity_type or "").lower()
+    return normalized in {
+        "strength_training",
+        "strength",
+        "weight_training",
+        "bodyweight",
+        "cardio",
+        "workout",
+        "core_training",
+        "pilates",
+        "yoga",
+    }
+
+
+def _activity_curve_points(activity_row: dict[str, Any]) -> list[dict[str, Any]]:
+    payload = _safe_json_loads(activity_row.get("raw_payload"))
+    if not payload:
+        return []
+    activity_type = str(activity_row.get("activity_type") or "").lower()
+    if activity_type not in {"running", "trail_running"}:
+        return []
+
+    points: list[dict[str, Any]] = []
+    started_at = activity_row.get("started_at")
+    activity_date = activity_row.get("activity_date")
+    summary_duration = _parse_float(activity_row.get("duration_seconds"))
+    summary_distance = _parse_float(activity_row.get("distance_meters"))
+    summary_hr = _parse_float(activity_row.get("average_hr"))
+    summary_cadence = _extract_running_cadence_spm(payload)
+    if (
+        summary_duration is not None
+        and summary_distance is not None
+        and summary_duration >= 600
+        and summary_distance >= 2000
+        and summary_hr is not None
+    ):
+        pace = _pace_min_per_km(summary_duration / 60.0, summary_distance / 1000.0)
+        if pace is not None and 2.5 <= pace <= 12.0:
+            points.append(
+                {
+                    "pace_min_per_km": round(pace, 2),
+                    "heart_rate": round(summary_hr, 1),
+                    "cadence_spm": round(summary_cadence, 1) if summary_cadence is not None else None,
+                    "duration_seconds": round(summary_duration, 1),
+                    "distance_meters": round(summary_distance, 1),
+                    "activity_date": activity_date,
+                    "started_at": started_at,
+                    "point_type": "summary",
+                    "weight": max(summary_duration, 300.0),
+                }
+            )
+
+    candidate_lists = []
+    for key in ("splitSummaries", "splits", "lapDTOs", "activitySplits", "laps"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            candidate_lists.extend(item for item in value if isinstance(item, dict))
+
+    for candidate in candidate_lists:
+        item = _unwrap_split_candidate(candidate)
+        duration_seconds = _parse_float(
+            _first(
+                item,
+                "elapsedDuration",
+                "durationSeconds",
+                "duration",
+                "splitTimeSeconds",
+                "splitTime",
+                "movingDuration",
+                "time",
+            )
+        )
+        distance_meters = _parse_float(
+            _first(
+                item,
+                "distanceMeters",
+                "distance",
+                "splitDistance",
+                "length",
+                "distanceMetersCovered",
+            )
+        )
+        if duration_seconds is not None and duration_seconds < 120 and (distance_meters is None or distance_meters < 500):
+            continue
+        speed_mps = _parse_float(
+            _first(item, "WEIGHTED_MEAN_SPEED", "weightedMeanSpeed", "avgSpeed", "averageSpeed", "speed")
+        )
+        pace = None
+        if duration_seconds is not None and distance_meters is not None and duration_seconds > 0 and distance_meters > 0:
+            pace = _pace_min_per_km(duration_seconds / 60.0, distance_meters / 1000.0)
+        elif speed_mps is not None and speed_mps > 0:
+            pace = 16.6666667 / speed_mps
+        heart_rate = _parse_float(
+            _first(
+                item,
+                "WEIGHTED_MEAN_HEARTRATE",
+                "weightedMeanHeartrate",
+                "averageHR",
+                "averageHr",
+                "avgHr",
+                "heartRate",
+                "hr",
+            )
+        )
+        cadence = _extract_running_cadence_spm(item)
+        if pace is None or heart_rate is None:
+            continue
+        if not (2.5 <= pace <= 12.0 and 60 <= heart_rate <= 220):
+            continue
+        if cadence is not None and not (50 <= cadence <= 220):
+            cadence = None
+        points.append(
+            {
+                "pace_min_per_km": round(pace, 2),
+                "heart_rate": round(heart_rate, 1),
+                "cadence_spm": round(cadence, 1) if cadence is not None else None,
+                "duration_seconds": round(duration_seconds, 1) if duration_seconds is not None else None,
+                "distance_meters": round(distance_meters, 1) if distance_meters is not None else None,
+                "activity_date": activity_date,
+                "started_at": started_at,
+                "point_type": "split",
+                "weight": max(duration_seconds or 0.0, 90.0),
+            }
+        )
+    return points
+
+
+def _build_pace_hr_curve(points: list[dict[str, Any]], max_points: int = 18) -> list[dict[str, Any]]:
+    valid_points = [
+        point
+        for point in points
+        if point.get("pace_min_per_km") is not None and point.get("heart_rate") is not None
+    ]
+    if len(valid_points) < 3:
+        return []
+
+    paces = [float(point["pace_min_per_km"]) for point in valid_points]
+    hr_values = [float(point["heart_rate"]) for point in valid_points]
+    cadence_values = [float(point["cadence_spm"]) for point in valid_points if point.get("cadence_spm") is not None]
+    pace_low = _percentile(paces, 0.1) or min(paces)
+    pace_high = _percentile(paces, 0.9) or max(paces)
+    if pace_high <= pace_low:
+        pace_low, pace_high = min(paces), max(paces)
+    pace_low = round(float(pace_low), 2)
+    pace_high = round(float(pace_high), 2)
+    if pace_high <= pace_low:
+        pace_high = round(pace_low + 0.25, 2)
+    bin_width = max(0.15, round((pace_high - pace_low) / max(6, min(max_points, len(valid_points))), 2))
+    bins: dict[float, dict[str, Any]] = {}
+    for point in valid_points:
+        pace = float(point["pace_min_per_km"])
+        clamped_pace = min(max(pace, pace_low), pace_high)
+        bin_key = round(round(clamped_pace / bin_width) * bin_width, 2)
+        bucket = bins.setdefault(
+            bin_key,
+            {"pace_samples": [], "hr_samples": [], "cadence_samples": [], "weight": 0.0, "point_count": 0},
+        )
+        weight = max(float(point.get("weight") or 1.0), 1.0)
+        bucket["pace_samples"].append((pace, weight))
+        bucket["hr_samples"].append((float(point["heart_rate"]), weight))
+        cadence = point.get("cadence_spm")
+        if cadence is not None:
+            bucket["cadence_samples"].append((float(cadence), weight))
+        bucket["weight"] += weight
+        bucket["point_count"] += 1
+
+    ordered_bins = sorted(bins.items(), key=lambda item: item[0], reverse=True)
+    raw_hr = []
+    raw_weights = []
+    curve_rows: list[dict[str, Any]] = []
+    for pace_bin, bucket in ordered_bins:
+        hr_value = _weighted_median(bucket["hr_samples"])
+        if hr_value is None:
+            continue
+        raw_hr.append(hr_value)
+        raw_weights.append(bucket["weight"] or 1.0)
+        curve_rows.append(
+            {
+                "pace_min_per_km": round(pace_bin, 2),
+                "heart_rate": round(hr_value, 1),
+                "cadence_spm": _weighted_median(bucket["cadence_samples"]),
+                "support": round(bucket["weight"], 1),
+                "point_count": bucket["point_count"],
+            }
+        )
+
+    if len(curve_rows) < 3:
+        return []
+
+    smoothed_hr = _weighted_isotonic_non_decreasing(raw_hr, raw_weights)
+    for index, row in enumerate(curve_rows):
+        if index < len(smoothed_hr):
+            row["heart_rate"] = round(float(smoothed_hr[index]), 1)
+        zone = int(
+            min(
+                5,
+                max(
+                    1,
+                    math.ceil(((row["heart_rate"] - min(raw_hr)) / max(max(raw_hr) - min(raw_hr), 1.0)) * 5),
+                ),
+            )
+        )
+        row["zone"] = zone
+    return curve_rows[:max_points]
+
+
+def _build_cadence_daily_series(activities_rows: list[dict[str, Any]]) -> dict[str, float]:
+    by_day: dict[str, list[tuple[float, float]]] = {}
+    for row in activities_rows:
+        if not _is_running_type(row["activity_type"]):
+            continue
+        activity_date = row.get("activity_date")
+        cadence = _extract_running_cadence_spm(_safe_json_loads(row.get("raw_payload")))
+        if activity_date is None or cadence is None:
+            continue
+        duration_seconds = _parse_float(row.get("duration_seconds")) or 0.0
+        if duration_seconds <= 0:
+            continue
+        by_day.setdefault(str(activity_date), []).append((cadence, max(duration_seconds, 60.0)))
+    daily: dict[str, float] = {}
+    for metric_date, samples in by_day.items():
+        total_weight = sum(weight for _, weight in samples)
+        if total_weight <= 0:
+            continue
+        weighted = sum(value * weight for value, weight in samples) / total_weight
+        daily[metric_date] = round(weighted, 1)
+    return daily
+
+
+def _build_daily_distance_series(
+    activities_rows: list[dict[str, Any]],
+    predicate,
+) -> dict[str, float]:
+    by_day: dict[str, float] = {}
+    for row in activities_rows:
+        if not predicate(row.get("activity_type")):
+            continue
+        activity_date = row.get("activity_date")
+        distance_meters = _parse_float(row.get("distance_meters")) or 0.0
+        if activity_date is None or distance_meters <= 0:
+            continue
+        by_day.setdefault(str(activity_date), 0.0)
+        by_day[str(activity_date)] += distance_meters
+    return {day: round(distance / 1000.0, 2) for day, distance in by_day.items()}
+
+
+def _build_daily_wellness_series(
+    wellness_rows: list[dict[str, Any]],
+    key: str,
+) -> dict[str, float]:
+    by_day: dict[str, float] = {}
+    for row in wellness_rows:
+        metric_date = row.get("metric_date")
+        value = row.get(key)
+        if metric_date is None or value is None:
+            continue
+        try:
+            by_day[str(metric_date)] = round(float(value), 2)
+        except (TypeError, ValueError):
+            continue
+    return by_day
+
+
+def _aggregate_wellness_sleep_hours(merged_wellness: dict[str, dict[str, Any]], metric_date: str) -> float | None:
+    if metric_date not in merged_wellness:
+        return None
+    row = merged_wellness.get(metric_date, {})
+    if "sleep_duration_seconds" not in row:
+        return None
+    try:
+        return round((float(row["sleep_duration_seconds"]) or 0.0) / 3600.0, 2)
+    except (TypeError, ValueError):
+        return None
 
 
 def _is_plausible_activity(
@@ -1115,14 +1520,25 @@ def _aggregate_wellness(wellness_rows: list[dict[str, Any]]) -> dict[str, dict[s
 
 
 def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    running_rows = [row for row in activities_rows if _is_running_type(row.get("activity_type"))]
+    cycling_rows = [row for row in activities_rows if _is_cycling_type(row.get("activity_type"))]
     load_by_day: dict[str, float] = {}
-    for row in activities_rows:
+    for row in running_rows:
         if row["activity_date"]:
             load_by_day.setdefault(row["activity_date"], 0.0)
             load_by_day[row["activity_date"]] += float(row["training_load"] or 0.0)
 
+    running_distance_by_day = _build_daily_distance_series(running_rows, _is_running_type)
+    cycling_distance_by_day = _build_daily_distance_series(cycling_rows, _is_cycling_type)
+    cadence_by_day = _build_cadence_daily_series(running_rows)
     merged_wellness = _aggregate_wellness(wellness_rows)
-    all_dates = sorted(set(load_by_day) | set(merged_wellness))
+    all_dates = sorted(
+        set(load_by_day)
+        | set(running_distance_by_day)
+        | set(cycling_distance_by_day)
+        | set(merged_wellness)
+        | set(cadence_by_day)
+    )
     metrics_rows: list[dict[str, Any]] = []
 
     def trailing_average(values: list[float]) -> float | None:
@@ -1158,6 +1574,12 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
                 if day in merged_wellness and "hrv_ms" in merged_wellness[day]
             ]
         )
+        cadence_7d = trailing_average(
+            [cadence_by_day[day] for day in window_7 if day in cadence_by_day]
+        )
+        cadence_28d = trailing_average(
+            [cadence_by_day[day] for day in window_28 if day in cadence_by_day]
+        )
         hrv_28d = trailing_average(
             [
                 merged_wellness[day]["hrv_ms"]
@@ -1192,12 +1614,16 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
             {
                 "metric_date": metric_date,
                 "activity_load": round(load_by_day.get(metric_date, 0.0), 2),
+                "running_distance_km": round(running_distance_by_day.get(metric_date, 0.0), 2),
+                "cycling_distance_km": round(cycling_distance_by_day.get(metric_date, 0.0), 2),
                 "load_7d": load_7d,
                 "load_28d": load_28d,
                 "load_ratio_7_28": load_ratio,
                 "sleep_hours_7d": sleep_hours_7d,
                 "resting_hr_7d": resting_hr_7d,
                 "hrv_7d": hrv_7d,
+                "cadence_7d": cadence_7d,
+                "cadence_28d": cadence_28d,
                 "progression_delta": progression_delta,
                 "fatigue_flag": fatigue_flag,
                 "overreaching_flag": overreaching_flag,
@@ -1205,6 +1631,27 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
         )
 
     latest = metrics_rows[-1] if metrics_rows else {}
+    load_7d_series = [row["load_7d"] for row in metrics_rows if row.get("load_7d") is not None]
+    sleep_7d_series = [row["sleep_hours_7d"] for row in metrics_rows if row.get("sleep_hours_7d") is not None]
+    resting_hr_series = [row["resting_hr_7d"] for row in metrics_rows if row.get("resting_hr_7d") is not None]
+    cadence_series = [row["cadence_7d"] for row in metrics_rows if row.get("cadence_7d") is not None]
+    load_ratio_series = [row["load_ratio_7_28"] for row in metrics_rows if row.get("load_ratio_7_28") is not None]
+    cadence_latest = latest.get("cadence_7d")
+    cadence_ref_low = _percentile(cadence_series, 0.25)
+    cadence_ref_high = _percentile(cadence_series, 0.75)
+    load_ref_low = _percentile(load_7d_series, 0.25)
+    load_ref_high = _percentile(load_7d_series, 0.75)
+    sleep_ref_low = _percentile(sleep_7d_series, 0.25)
+    sleep_ref_high = _percentile(sleep_7d_series, 0.75)
+    resting_hr_ref_low = _percentile(resting_hr_series, 0.25)
+    resting_hr_ref_high = _percentile(resting_hr_series, 0.75)
+    load_ratio_ref_low = _percentile(load_ratio_series, 0.25)
+    load_ratio_ref_high = _percentile(load_ratio_series, 0.75)
+    pace_hr_curve = _build_pace_hr_curve(running_rows)
+    cadence_trend = [
+        {"metric_date": metric_date, "cadence_spm": cadence_by_day[metric_date]}
+        for metric_date in sorted(cadence_by_day)
+    ]
     report = {
         "generated_at": datetime.now(UTC).isoformat(),
         "latest_day": latest.get("metric_date"),
@@ -1221,8 +1668,74 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
             "fatigue_flag": "True when sleep is below 7h or recent HRV is down versus the trailing 28-day baseline.",
             "overreaching_flag": "True when recent load is elevated and recovery signals are degraded.",
         },
+        "trend_insights": {
+            "window_days": 90,
+            "daily_volume": [],
+            "daily_bike_volume": [],
+            "daily_load_ratio": [],
+            "daily_sleep": [],
+            "daily_resting_hr": [],
+            "cadence_daily": cadence_trend,
+            "pace_hr_curve": pace_hr_curve,
+            "curve_point_count": len(pace_hr_curve),
+        },
         "latest_metrics": latest,
     }
+    report["trend_insights"]["daily_volume"] = [
+        {
+            "metric_date": row["metric_date"],
+            "distance_km": round((running_distance_by_day.get(row["metric_date"], 0.0) or 0.0), 2),
+            "training_load": round(float(load_by_day.get(row["metric_date"], 0.0) or 0.0), 2),
+        }
+        for row in metrics_rows
+    ]
+    report["trend_insights"]["daily_bike_volume"] = [
+        {
+            "metric_date": row["metric_date"],
+            "distance_km": round((cycling_distance_by_day.get(row["metric_date"], 0.0) or 0.0), 2),
+        }
+        for row in metrics_rows
+    ]
+    report["trend_insights"]["daily_load_ratio"] = [
+        {
+            "metric_date": row["metric_date"],
+            "load_ratio_7_28": row["load_ratio_7_28"],
+        }
+        for row in metrics_rows
+    ]
+    report["trend_insights"]["daily_sleep"] = [
+        {
+            "metric_date": row["metric_date"],
+            "sleep_hours": _aggregate_wellness_sleep_hours(merged_wellness, row["metric_date"]),
+        }
+        for row in metrics_rows
+    ]
+    report["trend_insights"]["daily_resting_hr"] = [
+        {
+            "metric_date": row["metric_date"],
+            "resting_hr": merged_wellness.get(row["metric_date"], {}).get("resting_hr"),
+        }
+        for row in metrics_rows
+    ]
+    latest.update(
+        {
+            "load_reference_low": load_ref_low,
+            "load_reference_high": load_ref_high,
+            "sleep_reference_low": sleep_ref_low,
+            "sleep_reference_high": sleep_ref_high,
+            "resting_hr_reference_low": resting_hr_ref_low,
+            "resting_hr_reference_high": resting_hr_ref_high,
+            "load_ratio_reference_low": load_ratio_ref_low,
+            "load_ratio_reference_high": load_ratio_ref_high,
+            "cadence_7d": cadence_latest,
+            "cadence_28d": latest.get("cadence_28d"),
+            "cadence_reference_low": cadence_ref_low,
+            "cadence_reference_high": cadence_ref_high,
+            "pace_hr_curve_points": len(pace_hr_curve),
+            "running_distance_km_7d": round(sum(running_distance_by_day.get(day, 0.0) for day in all_dates[-7:]), 2) if all_dates else 0.0,
+            "cycling_distance_km_7d": round(sum(cycling_distance_by_day.get(day, 0.0) for day in all_dates[-7:]), 2) if all_dates else 0.0,
+        }
+    )
     return metrics_rows, report
 
 

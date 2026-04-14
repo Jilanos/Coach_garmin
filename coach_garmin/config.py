@@ -7,6 +7,7 @@ DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "normalized" / "coach_garmin.duckdb"
 DEFAULT_STATE_DB_PATH = DEFAULT_DATA_DIR / "state" / "coach_garmin.sqlite3"
 DEFAULT_REPORT_PATH = DEFAULT_DATA_DIR / "reports" / "latest_metrics.json"
 DEFAULT_COVERAGE_REPORT_PATH = DEFAULT_DATA_DIR / "reports" / "feature_coverage.json"
+DEFAULT_BOOT_TRACE_PATH = DEFAULT_DATA_DIR / "reports" / "pwa_boot_trace.jsonl"
 DEFAULT_LOCAL_DIR = Path(".local")
 DEFAULT_GARMIN_TOKENSTORE = DEFAULT_LOCAL_DIR / "garmin" / "garmin_tokens.json"
 DEFAULT_GARMIN_LOOKBACK_DAYS = 30

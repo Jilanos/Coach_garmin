@@ -6,7 +6,7 @@ import threading
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -16,8 +16,12 @@ import duckdb
 from coach_garmin.coach_chat import CoachChatSession
 from coach_garmin.coach_llm import CoachLLMConfig, build_coach_client
 from coach_garmin.coach_tools import LocalCoachToolkit
-from coach_garmin.config import DEFAULT_WEB_HOST, DEFAULT_WEB_PORT
+from coach_garmin.config import DEFAULT_GARMIN_TOKENSTORE, DEFAULT_WEB_HOST, DEFAULT_WEB_PORT
+from coach_garmin.analytics import rebuild_analytics
+from coach_garmin.garmin_auth import describe_auth_environment, log_sync_error, test_garmin_auth
 from coach_garmin.manual_import import run_import_export
+from coach_garmin.garmin_auth import run_authenticated_sync
+from coach_garmin.storage import default_boot_trace_path
 from coach_garmin.sync_state import load_sync_summary
 
 
@@ -29,7 +33,14 @@ class CoachPwaConfig:
     port: int = DEFAULT_WEB_PORT
 
 
-def build_workspace_status(data_dir: Path, provider: str = "ollama", model: str | None = None, base_url: str | None = None, api_key: str | None = None) -> dict[str, Any]:
+def build_workspace_status(
+    data_dir: Path,
+    provider: str = "ollama",
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    include_provider_probe: bool = False,
+) -> dict[str, Any]:
     toolkit = LocalCoachToolkit(data_dir=data_dir)
     metrics = toolkit.metrics()
     history_7d = toolkit.history(days=7)
@@ -39,11 +50,22 @@ def build_workspace_status(data_dir: Path, provider: str = "ollama", model: str 
     if not isinstance(goal_profile, dict):
         goal_profile = {}
     analysis = toolkit.analysis(goal_profile or {"target_event": "running"})
-    provider_status = _probe_provider(provider=provider, model=model, base_url=base_url, api_key=api_key)
+    provider_status = (
+        _probe_provider(provider=provider, model=model, base_url=base_url, api_key=api_key)
+        if include_provider_probe
+        else {
+            "available": False,
+            "provider": provider,
+            "model": model,
+            "status": "unchecked",
+            "note": "provider probe skipped for fast status rendering",
+        }
+    )
     latest_metrics = metrics.get("latest_metrics", {}) if isinstance(metrics.get("latest_metrics", {}), dict) else {}
+    trend_insights = metrics.get("trend_insights", {}) if isinstance(metrics.get("trend_insights", {}), dict) else {}
     sync_state = load_sync_summary(data_dir)
     latest_sync_run = sync_state.get("latest_run")
-    trend_series = _build_trend_series(data_dir)
+    trend_series = trend_insights or _build_trend_series(data_dir)
     heart_rate_zone_rows = metrics.get("heart_rate_zones", {}) if isinstance(metrics.get("heart_rate_zones", {}), dict) else {}
     max_hr_estimate = heart_rate_zone_rows.get("max_hr")
     pace_context = analysis.get("inferred_paces", {}) if isinstance(analysis.get("inferred_paces", {}), dict) else {}
@@ -51,21 +73,35 @@ def build_workspace_status(data_dir: Path, provider: str = "ollama", model: str 
         "load_7d": latest_metrics.get("load_7d"),
         "load_28d": latest_metrics.get("load_28d"),
         "load_ratio_7_28": latest_metrics.get("load_ratio_7_28"),
+        "load_reference_low": latest_metrics.get("load_reference_low"),
+        "load_reference_high": latest_metrics.get("load_reference_high"),
+        "load_ratio_reference_low": latest_metrics.get("load_ratio_reference_low"),
+        "load_ratio_reference_high": latest_metrics.get("load_ratio_reference_high"),
         "progression_delta": latest_metrics.get("progression_delta"),
         "sleep_hours_7d": latest_metrics.get("sleep_hours_7d"),
+        "sleep_reference_low": latest_metrics.get("sleep_reference_low"),
+        "sleep_reference_high": latest_metrics.get("sleep_reference_high"),
         "hrv_7d": latest_metrics.get("hrv_7d"),
         "resting_hr_7d": latest_metrics.get("resting_hr_7d"),
+        "resting_hr_reference_low": latest_metrics.get("resting_hr_reference_low"),
+        "resting_hr_reference_high": latest_metrics.get("resting_hr_reference_high"),
+        "cadence_7d": latest_metrics.get("cadence_7d"),
+        "cadence_28d": latest_metrics.get("cadence_28d"),
+        "cadence_reference_low": latest_metrics.get("cadence_reference_low"),
+        "cadence_reference_high": latest_metrics.get("cadence_reference_high"),
         "fatigue_flag": latest_metrics.get("fatigue_flag"),
         "overreaching_flag": latest_metrics.get("overreaching_flag"),
         "training_phase": analysis.get("training_phase"),
         "recent_running_days": history_7d.get("recent_running_days"),
         "recent_activity_count_7d": history_7d.get("recent_activity_count"),
+        "recent_bike_activity_count_7d": history_7d.get("recent_bike_activity_count"),
         "recent_activity_count_28d": history_28d.get("recent_activity_count"),
-        "total_distance_km_7d": history_7d.get("total_distance_km"),
-        "total_distance_km_21d": history_21d.get("total_distance_km"),
-        "long_run_km": history_21d.get("long_run_km"),
-        "weekly_volume_km": history_7d.get("total_distance_km"),
+        "total_distance_km_7d": history_7d.get("running_distance_km"),
+        "total_distance_km_21d": history_21d.get("running_distance_km"),
+        "weekly_volume_km": history_7d.get("running_distance_km"),
+        "weekly_bike_volume_km": history_7d.get("bike_distance_km"),
         "weekly_running_days": history_7d.get("recent_running_days"),
+        "weekly_bike_days": history_7d.get("recent_bike_days"),
         "average_pace_21d": (analysis.get("windows") or {}).get("21d", {}).get("average_pace_min_per_km"),
         "threshold_pace_min_per_km": pace_context.get("threshold_pace_min_per_km"),
         "max_hr_estimate": max_hr_estimate,
@@ -234,6 +270,59 @@ def import_garmin_export(*, source_path: str, data_dir: Path, run_label: str | N
     return run_import_export(Path(source_path), data_dir, run_label=run_label or "pwa-import")
 
 
+def sync_garmin_connect(
+    *,
+    data_dir: Path,
+    days: int = 30,
+    run_label: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
+    context = {
+        "run_label": run_label or "pwa-garmin-sync",
+        "days": days,
+        "start_date": start_date,
+        "end_date": end_date,
+    }
+    try:
+        result = run_authenticated_sync(
+            data_dir=data_dir,
+            days=days,
+            run_label=run_label or "pwa-garmin-sync",
+            start_date=start_date,
+            end_date=end_date,
+        )
+        result["debug_log_path"] = result.get("debug_log_path") or str(Path(__file__).resolve().parent.parent / "logs" / "garmin-sync-debug.jsonl")
+        return result
+    except Exception as exc:
+        log_sync_error(data_dir=data_dir, error=exc, context=context)
+        raise RuntimeError(f"{exc} (voir logs/garmin-sync-debug.jsonl)") from exc
+
+
+def recalculate_workspace(
+    *,
+    data_dir: Path,
+    provider: str = "ollama",
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    analytics_summary = rebuild_analytics(data_dir)
+    dashboard = build_workspace_status(
+        data_dir,
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        api_key=api_key,
+    )
+    return {
+        "ok": True,
+        "message": "Retraitement local terminé.",
+        "analytics": analytics_summary,
+        "dashboard": dashboard,
+    }
+
+
 def run_pwa_server(*, web_root: Path, default_data_dir: Path, host: str = DEFAULT_WEB_HOST, port: int = DEFAULT_WEB_PORT) -> None:
     config = CoachPwaConfig(web_root=web_root, default_data_dir=default_data_dir, host=host, port=port)
     handler = _build_handler(config)
@@ -261,6 +350,108 @@ def _build_static_response(path: Path) -> tuple[bytes, str]:
     return path.read_bytes(), content_type or "application/octet-stream"
 
 
+def _build_reset_cache_page(next_url: str, version: str) -> str:
+    escaped_next = json.dumps(next_url or "/")
+    escaped_version = json.dumps(version)
+    return f"""<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>Coach Garmin - purge cache</title>
+    <style>
+      :root {{ color-scheme: dark; }}
+      body {{
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0b1020;
+        color: #f4f7fb;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }}
+      .card {{
+        width: min(720px, calc(100vw - 32px));
+        border: 1px solid rgba(138, 180, 255, 0.18);
+        border-radius: 24px;
+        padding: 28px;
+        background: rgba(13, 20, 36, 0.96);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+      }}
+      .muted {{ color: rgba(244, 247, 251, 0.72); line-height: 1.5; }}
+      .spinner {{
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 3px solid rgba(138, 230, 192, 0.25);
+        border-top-color: #8ae6c0;
+        animation: spin 0.9s linear infinite;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 10px;
+      }}
+      @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+      .mono {{
+        font-family: "Cascadia Mono", Consolas, monospace;
+        white-space: pre-wrap;
+        color: #b9c8db;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 14px;
+        margin-top: 18px;
+      }}
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Coach Garmin: purge du cache local</h1>
+      <p class="muted"><span class="spinner" aria-hidden="true"></span>Je nettoie les caches PWA et les service workers, puis je redirige vers la version {escaped_version}.</p>
+      <p class="muted">Si rien ne bouge dans l'UI après ça, on saura que le problème ne vient plus du cache navigateur.</p>
+      <div class="mono" id="status">Démarrage de la purge…</div>
+    </main>
+    <script>
+      const nextUrl = {escaped_next};
+      const status = document.getElementById('status');
+      async function clearCaches() {{
+        try {{
+          if ('serviceWorker' in navigator) {{
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const registration of registrations) {{
+              try {{ await registration.unregister(); }} catch (error) {{ console.warn(error); }}
+            }}
+          }}
+        }} catch (error) {{
+          console.warn(error);
+        }}
+        try {{
+          if ('caches' in window) {{
+            const keys = await caches.keys();
+            await Promise.all(keys.map((key) => caches.delete(key)));
+          }}
+        }} catch (error) {{
+          console.warn(error);
+        }}
+      }}
+      (async () => {{
+        try {{
+          status.textContent = 'Purge du cache PWA en cours…';
+          await clearCaches();
+          status.textContent = 'Cache purgé. Redirection vers l\\'app…';
+        }} catch (error) {{
+          status.textContent = `Purge terminée avec avertissement: ${{error.message}}`;
+        }} finally {{
+          setTimeout(() => {{ location.replace(nextUrl); }}, 400);
+        }}
+      }})();
+    </script>
+  </body>
+</html>"""
+
+
 def _load_latest_sync_run(data_dir: Path) -> dict[str, Any] | None:
     runs_dir = data_dir / "runs"
     if not runs_dir.exists():
@@ -284,29 +475,98 @@ def _load_latest_sync_run(data_dir: Path) -> dict[str, Any] | None:
     return None
 
 
+def _boot_trace_path(data_dir: Path) -> Path:
+    return default_boot_trace_path(data_dir)
+
+
+def _append_boot_trace(data_dir: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    trace_path = _boot_trace_path(data_dir)
+    trace_path.parent.mkdir(parents=True, exist_ok=True)
+    event = {
+        "timestamp": payload.get("timestamp") or datetime.now(UTC).isoformat(),
+        "stage": payload.get("stage") or payload.get("event") or "unknown",
+        "event": payload.get("event") or payload.get("stage") or "unknown",
+        "detail": payload.get("detail"),
+        "app_version": payload.get("app_version"),
+        "section": payload.get("section"),
+        "workspace": payload.get("workspace"),
+        "provider": payload.get("provider"),
+        "state": payload.get("state"),
+        "url": payload.get("url"),
+        "hash": payload.get("hash"),
+    }
+    with trace_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, ensure_ascii=True) + "\n")
+    return event
+
+
+def _read_boot_trace(data_dir: Path, limit: int = 50) -> list[dict[str, Any]]:
+    trace_path = _boot_trace_path(data_dir)
+    if not trace_path.exists():
+        return []
+    lines = trace_path.read_text(encoding="utf-8").splitlines()
+    events: list[dict[str, Any]] = []
+    for line in lines[-limit:]:
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(payload, dict):
+            events.append(payload)
+    return events
+
+
 def _build_trend_series(data_dir: Path) -> dict[str, Any]:
     db_path = data_dir / "normalized" / "coach_garmin.duckdb"
     if not db_path.exists():
-        return {"daily_volume": [], "pace_hr_sessions": []}
+        return {
+            "daily_volume": [],
+            "daily_bike_volume": [],
+            "daily_load_ratio": [],
+            "daily_sleep": [],
+            "daily_resting_hr": [],
+            "pace_hr_sessions": [],
+        }
 
     con = duckdb.connect(str(db_path), read_only=True)
     try:
         latest_day_row = con.execute("SELECT max(activity_date) FROM activities WHERE activity_date IS NOT NULL").fetchone()
         latest_day = latest_day_row[0] if latest_day_row else None
         if latest_day is None:
-            return {"daily_volume": [], "pace_hr_sessions": []}
+            return {
+                "daily_volume": [],
+                "daily_bike_volume": [],
+                "daily_load_ratio": [],
+                "daily_sleep": [],
+                "daily_resting_hr": [],
+                "pace_hr_sessions": [],
+            }
 
         latest_date = _coerce_date(latest_day)
-        window_start = latest_date - timedelta(days=13)
+        window_start = latest_date - timedelta(days=89)
         volume_rows = con.execute(
             """
-            SELECT activity_date, SUM(distance_meters), SUM(duration_seconds), SUM(training_load), AVG(average_hr)
+            SELECT activity_date,
+                   SUM(CASE WHEN LOWER(activity_type) IN ('running','trail_running','treadmill_running','indoor_running') THEN distance_meters ELSE 0 END),
+                   SUM(CASE WHEN LOWER(activity_type) IN ('cycling','bike','biking','road_biking','mountain_biking','indoor_cycling','virtual_ride','ebike','gravel_cycling') THEN distance_meters ELSE 0 END),
+                   SUM(CASE WHEN LOWER(activity_type) IN ('running','trail_running','treadmill_running','indoor_running') THEN training_load ELSE 0 END)
             FROM activities
             WHERE activity_date >= ?
             GROUP BY activity_date
             ORDER BY activity_date
             """,
             [window_start.isoformat()],
+        ).fetchall()
+        load_rows = con.execute(
+            """
+            SELECT metric_date, load_7d, load_ratio_7_28, sleep_hours_7d, resting_hr_7d
+            FROM derived_daily_metrics
+            WHERE metric_date >= ?
+            ORDER BY metric_date
+            """,
+            [(latest_date - timedelta(days=89)).isoformat()],
         ).fetchall()
         pace_rows = con.execute(
             """
@@ -327,9 +587,27 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
         {
             "date": str(row[0]),
             "distance_km": round((row[1] or 0.0) / 1000.0, 2),
-            "duration_minutes": round((row[2] or 0.0) / 60.0, 1),
+            "bike_distance_km": round((row[2] or 0.0) / 1000.0, 2),
             "training_load": round(float(row[3] or 0.0), 2),
-            "average_hr": round(float(row[4]), 1) if row[4] is not None else None,
+        }
+        for row in volume_rows
+    ]
+    daily_load_ratio = [
+        {"date": str(row[0]), "load_7d": row[1], "load_ratio_7_28": row[2]}
+        for row in load_rows
+    ]
+    daily_sleep = [
+        {"date": str(row[0]), "sleep_hours": row[3]}
+        for row in load_rows
+    ]
+    daily_resting_hr = [
+        {"date": str(row[0]), "resting_hr": row[4]}
+        for row in load_rows
+    ]
+    daily_bike_volume = [
+        {
+            "date": str(row[0]),
+            "distance_km": round((row[2] or 0.0) / 1000.0, 2),
         }
         for row in volume_rows
     ]
@@ -343,16 +621,40 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
         for row in reversed(summary_rows[:8])
         if (row[2] or 0.0) > 0 and (row[3] or 0.0) > 0
     ]
-    return {"daily_volume": daily_volume, "pace_hr_sessions": pace_hr_sessions}
+    return {
+        "daily_volume": daily_volume,
+        "daily_bike_volume": daily_bike_volume,
+        "daily_load_ratio": daily_load_ratio,
+        "daily_sleep": daily_sleep,
+        "daily_resting_hr": daily_resting_hr,
+        "pace_hr_sessions": pace_hr_sessions,
+    }
 
 
 def _build_handler(config: CoachPwaConfig):
     class Handler(BaseHTTPRequestHandler):
+        def _log_http(self, method: str, path: str, status: int | None = None) -> None:
+            try:
+                _append_boot_trace(
+                    config.default_data_dir,
+                    {
+                        "event": "http",
+                        "stage": f"http:{method.lower()}",
+                        "detail": path if status is None else f"{path} -> {status}",
+                        "state": "info",
+                    },
+                )
+            except Exception:
+                pass
+
         def _send_json(self, payload: dict[str, Any], status: int = HTTPStatus.OK) -> None:
             body = json.dumps(payload, indent=2, ensure_ascii=True).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
             self.end_headers()
             self.wfile.write(body)
 
@@ -361,6 +663,9 @@ def _build_handler(config: CoachPwaConfig):
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
             self.end_headers()
             self.wfile.write(body)
 
@@ -373,34 +678,85 @@ def _build_handler(config: CoachPwaConfig):
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
+            if parsed.path == "/reset-cache":
+                params = parse_qs(parsed.query)
+                next_url = params.get("next", ["/?v=reset"])[0]
+                version = params.get("v", ["reset"])[0]
+                self._log_http("GET", parsed.path)
+                self._send_text(_build_reset_cache_page(next_url, version), "text/html; charset=utf-8")
+                return
+            if parsed.path == "/api/debug/boot":
+                params = parse_qs(parsed.query)
+                data_dir = Path(params.get("data_dir", [str(config.default_data_dir)])[0])
+                limit = int(params.get("limit", ["50"])[0])
+                self._log_http("GET", parsed.path)
+                self._send_json(
+                    {
+                        "data_dir": str(data_dir),
+                        "trace_path": str(_boot_trace_path(data_dir)),
+                        "events": _read_boot_trace(data_dir, limit=max(1, min(limit, 200))),
+                    }
+                )
+                return
+            if parsed.path == "/api/auth/debug":
+                params = parse_qs(parsed.query)
+                self._log_http("GET", parsed.path)
+                self._send_json(
+                    describe_auth_environment(
+                        tokenstore_path=Path(params.get("tokenstore_path", [str(DEFAULT_GARMIN_TOKENSTORE)])[0]),
+                    )
+                )
+                return
             if parsed.path == "/api/status":
                 params = parse_qs(parsed.query)
                 data_dir = Path(params.get("data_dir", [str(config.default_data_dir)])[0])
                 provider = params.get("provider", ["ollama"])[0]
                 model = params.get("model", [None])[0]
                 base_url = params.get("base_url", [None])[0]
-                self._send_json(build_workspace_status(data_dir, provider=provider, model=model, base_url=base_url))
+                include_provider_probe = params.get("probe", ["0"])[0] in {"1", "true", "yes", "on"}
+                self._log_http("GET", parsed.path)
+                self._send_json(
+                    build_workspace_status(
+                        data_dir,
+                        provider=provider,
+                        model=model,
+                        base_url=base_url,
+                        include_provider_probe=include_provider_probe,
+                    )
+                )
                 return
             file_path = _resolve_static_path(config.web_root, parsed.path)
             if file_path is None:
                 file_path = config.web_root / "index.html"
             if not file_path.exists() or not file_path.is_file():
+                self._log_http("GET", parsed.path, status=HTTPStatus.NOT_FOUND)
                 self._send_text("Not found", status=HTTPStatus.NOT_FOUND)
                 return
             body, content_type = _build_static_response(file_path)
+            self._log_http("GET", parsed.path, status=HTTPStatus.OK)
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
             self.end_headers()
             self.wfile.write(body)
 
         def do_POST(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
             payload = self._read_json()
+            if parsed.path == "/api/debug/boot":
+                data_dir = Path(str(payload.get("data_dir") or config.default_data_dir))
+                event = _append_boot_trace(data_dir, payload)
+                self._log_http("POST", parsed.path)
+                self._send_json({"ok": True, "event": event, "trace_path": str(_boot_trace_path(data_dir))})
+                return
             if parsed.path == "/api/import":
                 source_path = str(payload.get("source_path") or "").strip()
                 data_dir = Path(str(payload.get("data_dir") or config.default_data_dir))
                 run_label = str(payload.get("run_label") or "pwa-import")
+                self._log_http("POST", parsed.path)
                 if not source_path:
                     self._send_json({"error": "source_path is required"}, status=HTTPStatus.BAD_REQUEST)
                     return
@@ -411,9 +767,51 @@ def _build_handler(config: CoachPwaConfig):
                     return
                 self._send_json(result)
                 return
+            if parsed.path == "/api/sync/garmin-connect":
+                data_dir = Path(str(payload.get("data_dir") or config.default_data_dir))
+                self._log_http("POST", parsed.path)
+                try:
+                    result = sync_garmin_connect(
+                        data_dir=data_dir,
+                        days=int(payload.get("days") or 30),
+                        run_label=str(payload.get("run_label") or "pwa-garmin-sync"),
+                        start_date=payload.get("start_date"),
+                        end_date=payload.get("end_date"),
+                    )
+                except Exception as exc:  # pragma: no cover - surfaced in UI
+                    self._send_json({"error": str(exc), "retryable": False}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                self._send_json(result)
+                return
+            if parsed.path == "/api/recalculate":
+                data_dir = Path(str(payload.get("data_dir") or config.default_data_dir))
+                self._log_http("POST", parsed.path)
+                try:
+                    result = recalculate_workspace(
+                        data_dir=data_dir,
+                        provider=str(payload.get("provider") or "ollama"),
+                        model=payload.get("model"),
+                        base_url=payload.get("base_url"),
+                        api_key=payload.get("api_key"),
+                    )
+                except Exception as exc:  # pragma: no cover - surfaced in UI
+                    self._send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                self._send_json(result)
+                return
+            if parsed.path == "/api/auth/test":
+                data_dir = Path(str(payload.get("data_dir") or config.default_data_dir))
+                self._log_http("POST", parsed.path)
+                result = test_garmin_auth(
+                    data_dir=data_dir,
+                    tokenstore_path=Path(str(payload.get("tokenstore_path") or DEFAULT_GARMIN_TOKENSTORE)),
+                )
+                self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.SERVICE_UNAVAILABLE)
+                return
             if parsed.path == "/api/coach/prepare":
                 goal_text = str(payload.get("goal_text") or "").strip()
                 data_dir = Path(str(payload.get("data_dir") or config.default_data_dir))
+                self._log_http("POST", parsed.path)
                 if not goal_text:
                     self._send_json({"error": "goal_text is required"}, status=HTTPStatus.BAD_REQUEST)
                     return
@@ -430,6 +828,7 @@ def _build_handler(config: CoachPwaConfig):
             if parsed.path == "/api/coach/plan":
                 goal_text = str(payload.get("goal_text") or "").strip()
                 data_dir = Path(str(payload.get("data_dir") or config.default_data_dir))
+                self._log_http("POST", parsed.path)
                 if not goal_text:
                     self._send_json({"error": "goal_text is required"}, status=HTTPStatus.BAD_REQUEST)
                     return

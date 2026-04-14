@@ -13,10 +13,10 @@ from coach_garmin.config import (
     DEFAULT_GARMIN_PASSWORD_ENV,
     DEFAULT_GARMIN_TOKENSTORE,
 )
-from coach_garmin.garmin_auth import initialize_garmin_auth, run_authenticated_sync
+from coach_garmin.garmin_auth import describe_auth_environment, initialize_garmin_auth, run_authenticated_sync, test_garmin_auth
 from coach_garmin.manual_import import run_import_export
 from coach_garmin.pwa_service import run_pwa_server
-from coach_garmin.storage import default_coverage_report_path, default_report_path
+from coach_garmin.storage import default_boot_trace_path, default_coverage_report_path, default_report_path
 from coach_garmin.sync_state import load_sync_summary
 
 
@@ -74,6 +74,29 @@ def cmd_report_latest(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_auth_status(args: argparse.Namespace) -> int:
+    payload = describe_auth_environment(
+        tokenstore_path=Path(args.tokenstore),
+        env_file=Path(args.env_file),
+        email_env=args.email_env,
+        password_env=args.password_env,
+    )
+    _print_payload(payload, args.format)
+    return 0
+
+
+def cmd_auth_test(args: argparse.Namespace) -> int:
+    payload = test_garmin_auth(
+        data_dir=Path(args.data_dir),
+        tokenstore_path=Path(args.tokenstore),
+        env_file=Path(args.env_file),
+        email_env=args.email_env,
+        password_env=args.password_env,
+    )
+    _print_payload(payload, args.format)
+    return 0
+
+
 def cmd_sync_refresh_export(args: argparse.Namespace) -> int:
     payload = run_import_export(
         source=Path(args.source),
@@ -96,6 +119,25 @@ def cmd_report_coverage(args: argparse.Namespace) -> int:
 def cmd_report_sync_state(args: argparse.Namespace) -> int:
     payload = load_sync_summary(Path(args.data_dir))
     _print_payload(payload, args.format)
+    return 0
+
+
+def cmd_report_boot_trace(args: argparse.Namespace) -> int:
+    trace_path = default_boot_trace_path(Path(args.data_dir))
+    if not trace_path.exists():
+        raise SystemExit(f"No boot trace found at {trace_path}")
+    if args.format == "json":
+        lines = []
+        for line in trace_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            lines.append(json.loads(line))
+        _print_payload({"path": str(trace_path), "events": lines}, args.format)
+        return 0
+    print(f"path: {trace_path}")
+    for line in trace_path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            print(line)
     return 0
 
 
@@ -183,6 +225,29 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--format", choices=("text", "json"), default="text")
     init_parser.set_defaults(func=cmd_auth_init)
 
+    status_parser = auth_subparsers.add_parser(
+        "status",
+        help="Inspect the local Garmin authentication environment without logging in.",
+    )
+    status_parser.add_argument("--tokenstore", default=str(DEFAULT_GARMIN_TOKENSTORE))
+    status_parser.add_argument("--env-file", default=str(DEFAULT_ENV_FILE))
+    status_parser.add_argument("--email-env", default=DEFAULT_GARMIN_EMAIL_ENV)
+    status_parser.add_argument("--password-env", default=DEFAULT_GARMIN_PASSWORD_ENV)
+    status_parser.add_argument("--format", choices=("text", "json"), default="text")
+    status_parser.set_defaults(func=cmd_auth_status)
+
+    test_parser = auth_subparsers.add_parser(
+        "test",
+        help="Attempt a Garmin authentication and write debug details locally.",
+    )
+    test_parser.add_argument("--data-dir", default="data")
+    test_parser.add_argument("--tokenstore", default=str(DEFAULT_GARMIN_TOKENSTORE))
+    test_parser.add_argument("--env-file", default=str(DEFAULT_ENV_FILE))
+    test_parser.add_argument("--email-env", default=DEFAULT_GARMIN_EMAIL_ENV)
+    test_parser.add_argument("--password-env", default=DEFAULT_GARMIN_PASSWORD_ENV)
+    test_parser.add_argument("--format", choices=("text", "json"), default="text")
+    test_parser.set_defaults(func=cmd_auth_test)
+
     report_parser = subparsers.add_parser("report", help="Read derived reports.")
     report_subparsers = report_parser.add_subparsers(dest="report_command")
     coach_parser = subparsers.add_parser("coach", help="Run local-first coaching workflows.")
@@ -210,6 +275,14 @@ def build_parser() -> argparse.ArgumentParser:
     sync_state_parser.add_argument("--data-dir", default="data")
     sync_state_parser.add_argument("--format", choices=("text", "json"), default="text")
     sync_state_parser.set_defaults(func=cmd_report_sync_state)
+
+    boot_trace_parser = report_subparsers.add_parser(
+        "boot-trace",
+        help="Print the latest PWA boot trace log.",
+    )
+    boot_trace_parser.add_argument("--data-dir", default="data")
+    boot_trace_parser.add_argument("--format", choices=("text", "json"), default="text")
+    boot_trace_parser.set_defaults(func=cmd_report_boot_trace)
 
     coach_chat_parser = coach_subparsers.add_parser(
         "chat",

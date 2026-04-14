@@ -1,11 +1,11 @@
-const CACHE_NAME = "coach-garmin-pwa-v3";
+﻿const CACHE_NAME = "coach-garmin-pwa-v5";
 const ASSETS = [
-  "/?v=20260413",
-  "/index.html?v=20260413",
-  "/styles.css?v=20260413",
-  "/app.js?v=20260413",
-  "/manifest.webmanifest?v=20260413",
-  "/icon.svg?v=20260413",
+  "/?v=20260414-navfix17",
+  "/index.html?v=20260414-navfix17",
+  "/styles.css?v=20260414-navfix17",
+  "/app.js?v=20260414-navfix17",
+  "/manifest.webmanifest?v=20260414-navfix17",
+  "/icon.svg?v=20260414-navfix17",
 ];
 
 self.addEventListener("install", (event) => {
@@ -26,18 +26,39 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") {
     return;
   }
-  event.respondWith(caches.match(request).then((cached) => {
-    if (cached) {
-      return cached;
-    }
-    return fetch(request)
-      .then((response) => {
-        if (response && response.status === 200 && response.type === "basic") {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        }
-        return response;
-      })
-      .catch(() => caches.match("/index.html"));
-  }));
+  const url = new URL(request.url);
+  const isDocument =
+    request.mode === "navigate" || request.destination === "document" || url.pathname === "/" || url.pathname.endsWith(".html");
+  if (isDocument) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => response)
+        .catch(() => caches.match("/index.html?v=20260414-navfix17").then((cached) => cached || caches.match("/index.html"))),
+    );
+    return;
+  }
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      if (cached) {
+        return cached;
+      }
+      return fetch(request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === "basic") {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match("/index.html?v=20260414-navfix17").then((cachedDoc) => cachedDoc || caches.match("/index.html")));
+    }),
+  );
 });
+
+
+
+
+
+
+
+

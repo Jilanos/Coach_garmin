@@ -286,8 +286,11 @@ button:disabled {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
   color: var(--text);
+  text-decoration: none;
   display: grid;
   gap: 5px;
+  width: 100%;
+  appearance: none;
 }
 
 .nav-button span {
@@ -317,6 +320,10 @@ button:disabled {
   color: var(--muted);
   line-height: 1.5;
   font-size: 0.92rem;
+}
+
+.build-chip {
+  letter-spacing: 0.04em;
 }
 
 .ghost-button,
@@ -378,6 +385,18 @@ button:disabled {
 .workspace-section {
   display: grid;
   gap: 16px;
+}
+
+.workspace-section:target {
+  display: grid !important;
+}
+
+body:has(#section-dashboard:target) #section-import,
+body:has(#section-coach:target) #section-import,
+body:has(#section-terminal:target) #section-import,
+body:has(#section-settings:target) #section-import,
+body:has(#diagnostic-modal:target) #section-import {
+  display: none;
 }
 
 .panel-header {
@@ -460,6 +479,19 @@ button:disabled {
   gap: 14px;
 }
 
+.subpanel {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  gap: 14px;
+}
+
+.auth-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
 label {
   display: flex;
   flex-direction: column;
@@ -496,6 +528,18 @@ textarea:focus {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.source-path-field {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.source-path-field input {
+  min-height: 48px;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  width: 100%;
 }
 
 .actions {
@@ -553,7 +597,7 @@ textarea:focus {
 
 .trend-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
 }
 
@@ -578,12 +622,129 @@ textarea:focus {
 
 .sparkline {
   min-height: 96px;
+  position: relative;
 }
 
 .sparkline svg {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.chart-shell {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.chart-axis-label,
+.chart-axis-tick,
+.chart-note {
+  fill: var(--muted);
+  font-size: 0.75rem;
+}
+
+.chart-axis-title {
+  fill: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.chart-grid-line {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.chart-axis-line {
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 1.2;
+  shape-rendering: crispEdges;
+}
+
+.chart-point-hit {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.chart-point-dot {
+  stroke: rgba(5, 10, 18, 0.85);
+  stroke-width: 1.2;
+}
+
+.chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+  min-width: 132px;
+  max-width: 220px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(8, 14, 24, 0.96);
+  color: var(--text);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.34);
+  transform: translate(10px, -100%);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.chart-tooltip.visible {
+  opacity: 1;
+}
+
+.chart-tooltip strong,
+.chart-tooltip span {
+  display: block;
+}
+
+.chart-tooltip small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.curve-wrap {
+  display: grid;
+  gap: 10px;
+}
+
+.curve-wrap svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.curve-axis-label {
+  fill: var(--muted);
+  font-size: 0.8rem;
+}
+
+.curve-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.curve-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.curve-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
 }
 
 .busy-banner,
@@ -842,6 +1003,10 @@ textarea:focus {
   display: none;
 }
 
+#diagnostic-modal:target {
+  display: grid !important;
+}
+
 .modal-sheet {
   width: 100%;
   height: 100%;
@@ -864,6 +1029,58 @@ textarea:focus {
   gap: 16px;
 }
 
+.diagnostic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.diagnostic-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.diagnostic-summary {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+#boot-trace-log {
+  min-height: 180px;
+}
+
+.diagnostic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.diagnostic-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.diagnostic-summary {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+}
+
 .modal-main {
   display: grid;
   gap: 14px;
@@ -880,6 +1097,11 @@ textarea:focus {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
   padding: 16px;
+}
+
+.modal-chart {
+  position: relative;
+  min-height: 260px;
 }
 
 .modal-signals {

@@ -47,6 +47,7 @@ class LocalCoachToolkit:
             "latest_day": report.get("latest_day"),
             "latest_metrics": report.get("latest_metrics", {}),
             "supported_metrics": report.get("supported_metrics", {}),
+            "trend_insights": report.get("trend_insights", {}),
             "coverage": coverage,
         }
 
@@ -143,6 +144,7 @@ class LocalCoachToolkit:
                 "window_days": days,
                 "available": False,
                 "recent_activity_count": 0,
+                "recent_bike_activity_count": 0,
                 "recent_activities": [],
                 "coverage": self._load_coverage_report(),
             }
@@ -158,6 +160,7 @@ class LocalCoachToolkit:
                     "window_days": days,
                     "available": False,
                     "recent_activity_count": 0,
+                    "recent_bike_activity_count": 0,
                     "recent_activities": [],
                     "coverage": self._load_coverage_report(),
                 }
@@ -174,8 +177,10 @@ class LocalCoachToolkit:
                 [window_start.isoformat()],
             ).fetchall()
 
-            running_types = {"running", "trail_running", "walking", "hiking"}
+            running_types = {"running", "trail_running", "treadmill_running", "indoor_running"}
+            bike_types = {"cycling", "bike", "biking", "road_biking", "mountain_biking", "indoor_cycling", "virtual_ride", "ebike", "gravel_cycling"}
             running_rows = [row for row in rows if str(row[1] or "").lower() in running_types]
+            bike_rows = [row for row in rows if str(row[1] or "").lower() in bike_types]
             summary_rows = running_rows if running_rows else rows
 
             recent_activities = [
@@ -190,9 +195,11 @@ class LocalCoachToolkit:
                 for row in summary_rows[:5]
             ]
             total_distance = sum((row[3] or 0.0) for row in summary_rows) / 1000.0 if summary_rows else 0.0
+            bike_distance = sum((row[3] or 0.0) for row in bike_rows) / 1000.0 if bike_rows else 0.0
             total_duration = sum((row[2] or 0.0) for row in summary_rows) / 60.0 if summary_rows else 0.0
             long_run_km = max(((row[3] or 0.0) / 1000.0 for row in summary_rows), default=0.0)
             running_days = len({str(row[0]) for row in summary_rows})
+            bike_days = len({str(row[0]) for row in bike_rows})
         finally:
             con.close()
 
@@ -201,9 +208,13 @@ class LocalCoachToolkit:
             "available": True,
             "latest_activity_day": latest_date.isoformat(),
             "recent_activity_count": len(summary_rows),
+            "recent_bike_activity_count": len(bike_rows),
             "recent_activity_count_all": len(rows),
             "recent_running_days": running_days,
+            "recent_bike_days": bike_days,
             "total_distance_km": round(total_distance, 2),
+            "running_distance_km": round(total_distance, 2),
+            "bike_distance_km": round(bike_distance, 2),
             "total_duration_minutes": round(total_duration, 1),
             "long_run_km": round(long_run_km, 2),
             "recent_activities": recent_activities,

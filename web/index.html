@@ -1,13 +1,16 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="fr" data-theme="data-lab">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0b1020" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta name="description" content="Coach ultra perso local-first" />
-    <link rel="manifest" href="/manifest.webmanifest?v=20260413" />
-    <link rel="icon" href="/icon.svg?v=20260413" type="image/svg+xml" />
-    <link rel="stylesheet" href="/styles.css?v=20260413" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20260414-navfix17" />
+    <link rel="icon" href="/icon.svg?v=20260414-navfix17" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css?v=20260414-navfix17" />
     <title>Coach ultra perso</title>
   </head>
   <body>
@@ -22,6 +25,7 @@
         </div>
 
         <div class="sidebar-status">
+          <span class="pill pill-small" id="app-chip">App: initialisation...</span>
           <span class="pill pill-small" id="provider-chip">Provider: chargement...</span>
           <span class="pill pill-small" id="data-chip">Donn&eacute;es: -</span>
           <span class="pill pill-small" id="freshness-chip">Fra&icirc;cheur: -</span>
@@ -29,30 +33,32 @@
         </div>
 
         <nav class="sidebar-nav" id="sidebar-nav" aria-label="Navigation principale">
-          <button type="button" class="nav-button" data-section="import">
+          <a class="nav-button" href="#import" data-section="import">
             <span>Import</span>
             <small>Workspace local</small>
-          </button>
-          <button type="button" class="nav-button" data-section="dashboard">
+          </a>
+          <a class="nav-button" href="#dashboard" data-section="dashboard">
             <span>Dashboard</span>
             <small>M&eacute;triques et tendances</small>
-          </button>
-          <button type="button" class="nav-button" data-section="coach">
+          </a>
+          <a class="nav-button" href="#coach" data-section="coach">
             <span>Chat</span>
             <small>Coaching et plan</small>
-          </button>
-          <button type="button" class="nav-button" data-section="terminal">
+          </a>
+          <a class="nav-button" href="#terminal" data-section="terminal">
             <span>Terminal</span>
             <small>Logs et debug</small>
-          </button>
-          <button type="button" class="nav-button" data-section="settings">
+          </a>
+          <a class="nav-button" href="#settings" data-section="settings">
             <span>Settings</span>
             <small>Options techniques</small>
-          </button>
+          </a>
         </nav>
 
         <div class="sidebar-footer">
           <div class="workspace-note" id="workspace-chip">Workspace: -</div>
+          <div class="workspace-note build-chip" id="build-chip">Build: 20260414-navfix17</div>
+          <a id="diagnostic-button" class="secondary-button" href="#diagnostic-modal" role="button">Diagnostic</a>
           <button id="install-button" class="ghost-button hidden" type="button">Installer l'app</button>
           <p class="fine-print">PWA installable, offline-first, donn&eacute;es locales par d&eacute;faut.</p>
         </div>
@@ -75,47 +81,50 @@
             <div class="section-grid">
               <article class="info-card spotlight-card">
                 <span class="card-label">Workflow local</span>
-                <strong id="import-data-state">Aucune donn&eacute;e d&eacute;tect&eacute;e</strong>
-                <p id="import-freshness-detail">Le workspace local n'a pas encore &eacute;t&eacute; analys&eacute;.</p>
-              </article>
-              <article class="info-card">
-                <span class="card-label">Workspace courant</span>
-                <strong id="import-workspace">-</strong>
-                <p id="import-workspace-detail">Le dossier utilis&eacute; pour l'analytics et le coach.</p>
+                <strong id="import-data-state">Aucune donnée détectée</strong>
+                <p id="import-freshness-detail">Le workflow local n'a pas encore été analysé.</p>
               </article>
               <article class="info-card">
                 <span class="card-label">Dernier import</span>
                 <strong id="import-run-state">-</strong>
-                <p id="import-run-detail">Aucun import r&eacute;cent n'est disponible.</p>
+                <p id="import-run-detail">Aucun import récent n'est disponible.</p>
               </article>
               <article class="info-card">
-                <span class="card-label">Fra&icirc;cheur</span>
+                <span class="card-label">Fraîcheur</span>
                 <strong id="import-age-state">-</strong>
-                <p id="import-age-detail">La date la plus r&eacute;cente est utile pour juger si un refresh est n&eacute;cessaire.</p>
+                <p id="import-age-detail">La date la plus récente aide à savoir si un refresh est utile.</p>
+              </article>
+              <article class="info-card">
+                <span class="card-label">Sync Garmin Connect</span>
+                <strong id="import-sync-state">-</strong>
+                <p id="import-sync-detail">Une sync peut compléter le workspace local sans bloquer l'app.</p>
+              </article>
+              <article class="info-card">
+                <span class="card-label">Source Garmin locale</span>
+                <strong id="import-workspace">-</strong>
+                <p id="import-workspace-detail">Le chemin saisi près du bouton Importer Garmin.</p>
               </article>
             </div>
 
             <div class="control-panel">
               <div class="panel-header">
                 <div>
-                  <h3>Importer ou rafra&icirc;chir</h3>
-                  <p>Le workflow part du dernier workspace local, avec un choix manuel possible.</p>
+                  <h3>Importer ou synchroniser</h3>
+                  <p>Le flux commence par la source Garmin locale, puis peut synchroniser Garmin Connect sans bloquer le reste.</p>
                 </div>
               </div>
               <div class="grid-2">
-                <label>
-                  Dossier local de travail
-                  <input id="workspace-input" type="text" placeholder="data" />
-                </label>
-                <label>
+                <label class="wide-input source-path-field">
                   Source Garmin locale
-                  <input id="source-path-input" type="text" placeholder="D:\\Transfert PC th&egrave;se\\garmin-export" />
+                  <input id="source-path-input" type="text" placeholder="D:\Transfert PC th&egrave;se\garmin-export" />
                 </label>
               </div>
               <div class="actions">
-                <button id="use-last-workspace-button" class="secondary-button" type="button">R&eacute;utiliser le dernier workspace</button>
-                <button id="import-button" class="primary-button" type="button">Importer Garmin</button>
-                <button id="refresh-button" class="secondary-button" type="button">Rafra&icirc;chir l'&eacute;tat</button>
+                <button id="import-button" class="secondary-button" type="button">Importer Garmin</button>
+                <button id="sync-button" class="secondary-button" type="button">Synchroniser Garmin Connect</button>
+                <button id="refresh-button" class="secondary-button" type="button">Rafraîchir le workspace</button>
+                <button id="reprocess-button" class="secondary-button" type="button">Recalculer les données</button>
+                <button id="use-last-workspace-button" class="secondary-button" type="button">Réutiliser le dernier workspace</button>
               </div>
             </div>
           </section>
@@ -123,26 +132,31 @@
           <section class="workspace-section hidden" id="section-dashboard" data-section="dashboard">
             <div class="section-grid">
               <article class="info-card spotlight-card">
-                <span class="card-label">Lecture coach</span>
-                <strong id="analysis-card">-</strong>
-                <p id="analysis-subtitle">-</p>
-              </article>
-              <article class="info-card">
-                <span class="card-label">Import local</span>
+                <span class="card-label">Volume hebdo</span>
                 <strong id="dashboard-import-state">-</strong>
                 <p id="dashboard-import-detail">-</p>
               </article>
               <article class="info-card">
-                <span class="card-label">Couverture</span>
+                <span class="card-label">Vélo hebdo</span>
+                <strong id="dashboard-bike-state">-</strong>
+                <p id="dashboard-bike-detail">-</p>
+              </article>
+              <article class="info-card">
+                <span class="card-label">Charge</span>
                 <strong id="coverage-card">-</strong>
                 <p id="coverage-subtitle">-</p>
+              </article>
+              <article class="info-card">
+                <span class="card-label">Cadence</span>
+                <strong id="analysis-card">-</strong>
+                <p id="analysis-subtitle">-</p>
               </article>
             </div>
 
             <div class="panel-header">
               <div>
                 <h3>M&eacute;triques cl&eacute;s</h3>
-                <p>Six &agrave; neuf cartes, chacune ouvrable en modal plein &eacute;cran pour d&eacute;tailler les tendances.</p>
+                <p>Les rep&egrave;res les plus utiles pour le coach, chacun ouvrable en modal plein &eacute;cran.</p>
               </div>
             </div>
             <div id="dashboard-cards" class="metric-grid"></div>
@@ -151,7 +165,7 @@
               <article class="trend-card">
                 <div class="trend-header">
                   <div>
-                    <span class="card-label">Courbe volume</span>
+                    <span class="card-label">Courbe volume running</span>
                     <strong>14 derniers jours</strong>
                   </div>
                   <p id="volume-trend-summary">-</p>
@@ -161,12 +175,62 @@
               <article class="trend-card">
                 <div class="trend-header">
                   <div>
-                    <span class="card-label">Courbe allure / FC</span>
-                    <strong>Derni&egrave;res sorties</strong>
+                    <span class="card-label">Courbe volume vélo</span>
+                    <strong>14 derniers jours</strong>
+                  </div>
+                  <p id="bike-volume-trend-summary">-</p>
+                </div>
+                <div id="bike-volume-trend" class="sparkline"></div>
+              </article>
+              <article class="trend-card">
+                <div class="trend-header">
+                  <div>
+                    <span class="card-label">Charge relative</span>
+                    <strong>90 derniers jours</strong>
+                  </div>
+                  <p id="load-ratio-trend-summary">-</p>
+                </div>
+                <div id="load-ratio-trend" class="sparkline"></div>
+              </article>
+              <article class="trend-card">
+                <div class="trend-header">
+                  <div>
+                    <span class="card-label">Sommeil</span>
+                    <strong>90 derniers jours</strong>
+                  </div>
+                  <p id="sleep-trend-summary">-</p>
+                </div>
+                <div id="sleep-trend" class="sparkline"></div>
+              </article>
+              <article class="trend-card">
+                <div class="trend-header">
+                  <div>
+                    <span class="card-label">FC repos</span>
+                    <strong>90 derniers jours</strong>
+                  </div>
+                  <p id="resting-hr-trend-summary">-</p>
+                </div>
+                <div id="resting-hr-trend" class="sparkline"></div>
+              </article>
+              <article class="trend-card">
+                <div class="trend-header">
+                  <div>
+                    <span class="card-label">Courbe pace / FC</span>
+                    <strong>90 derniers jours</strong>
                   </div>
                   <p id="pace-hr-trend-summary">-</p>
                 </div>
                 <div id="pace-hr-trend" class="sparkline"></div>
+              </article>
+              <article class="trend-card">
+                <div class="trend-header">
+                  <div>
+                    <span class="card-label">Cadence</span>
+                    <strong>90 derniers jours</strong>
+                  </div>
+                  <p id="cadence-trend-summary">-</p>
+                </div>
+                <div id="cadence-trend" class="sparkline"></div>
               </article>
             </div>
           </section>
@@ -251,6 +315,30 @@
                 <p>Les options techniques utiles pour piloter le workspace local et le provider IA.</p>
               </div>
             </div>
+            <div class="section-grid">
+              <article class="info-card spotlight-card">
+                <span class="card-label">Boot trace</span>
+                <strong id="boot-trace-state">-</strong>
+                <p id="boot-trace-detail">-</p>
+              </article>
+              <article class="info-card">
+                <span class="card-label">Debug endpoint</span>
+                <strong id="debug-endpoint-state">-</strong>
+                <p id="debug-endpoint-detail">-</p>
+              </article>
+            </div>
+
+            <div class="control-panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Trace du boot</h3>
+                  <p>Chaque étape du démarrage est enregistrée localement et dans le serveur debug pour qu'on voie exactement où ça casse.</p>
+                </div>
+                <button id="boot-trace-refresh-button" class="secondary-button" type="button">Rafraîchir la trace</button>
+              </div>
+              <pre id="boot-trace-log" class="diagnostic-summary"></pre>
+            </div>
+
             <div class="settings-grid">
               <label>
                 Th&egrave;me
@@ -300,6 +388,29 @@
                 Source Garmin locale
                 <input id="source-path-input-settings" type="text" placeholder="D:\\Transfert PC th&egrave;se\\garmin-export" />
               </label>
+              <div class="subpanel auth-panel">
+                <div class="panel-header">
+                  <div>
+                    <h3>Debug auth Garmin</h3>
+                    <p>Vérifie le tokenstore, la version de la lib et lance un test d'auth explicite si besoin.</p>
+                  </div>
+                </div>
+                <div class="section-grid auth-grid">
+                  <article class="info-card">
+                    <span class="card-label">Statut auth</span>
+                    <strong id="auth-debug-state">-</strong>
+                    <p id="auth-debug-detail">Aucun test d'auth pour le moment.</p>
+                  </article>
+                  <article class="info-card">
+                    <span class="card-label">Tokenstore</span>
+                    <strong id="auth-tokenstore-state">-</strong>
+                    <p id="auth-tokenstore-detail">Chemin stable recommandé hors dossier temporaire.</p>
+                  </article>
+                </div>
+                <div class="actions">
+                  <button id="auth-test-button" class="secondary-button" type="button">Tester l'auth Garmin</button>
+                </div>
+              </div>
             </div>
             <div class="actions">
               <button id="save-settings-button" class="primary-button" type="button">Sauvegarder</button>
@@ -331,6 +442,58 @@
       </div>
     </div>
 
+    <div id="diagnostic-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="diagnostic-modal-title">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <div>
+            <span class="card-label">Diagnostic</span>
+            <h3 id="diagnostic-modal-title">?tat du cache et de la build</h3>
+            <p id="diagnostic-modal-subtitle">Version de test, service worker, workspace local et état des données.</p>
+          </div>
+          <a id="diagnostic-modal-close" class="ghost-button" href="#section-import" role="button">Fermer</a>
+        </div>
+        <div class="diagnostic-grid">
+          <article class="info-card spotlight-card">
+            <span class="card-label">Version</span>
+            <strong id="diagnostic-build">-</strong>
+            <p id="diagnostic-build-detail">-</p>
+          </article>
+          <article class="info-card">
+            <span class="card-label">URL</span>
+            <strong id="diagnostic-url">-</strong>
+            <p id="diagnostic-url-detail">-</p>
+          </article>
+          <article class="info-card">
+            <span class="card-label">Service worker</span>
+            <strong id="diagnostic-sw">-</strong>
+            <p id="diagnostic-sw-detail">-</p>
+          </article>
+          <article class="info-card">
+            <span class="card-label">Workspace</span>
+            <strong id="diagnostic-workspace">-</strong>
+            <p id="diagnostic-workspace-detail">-</p>
+          </article>
+        </div>
+        <div class="diagnostic-grid diagnostic-grid-2">
+          <article class="info-card">
+            <span class="card-label">Données indexées</span>
+            <strong id="diagnostic-import">-</strong>
+            <p id="diagnostic-import-detail">-</p>
+          </article>
+          <article class="info-card">
+            <span class="card-label">Provider</span>
+            <strong id="diagnostic-provider">-</strong>
+            <p id="diagnostic-provider-detail">-</p>
+          </article>
+        </div>
+        <div class="diagnostic-toolbar">
+          <button id="diagnostic-refresh-button" class="secondary-button" type="button">Rafraîchir le diagnostic</button>
+          <button id="diagnostic-copy-button" class="secondary-button" type="button">Copier le résumé</button>
+        </div>
+        <pre id="diagnostic-summary" class="diagnostic-summary"></pre>
+      </div>
+    </div>
+
     <template id="question-template">
       <label class="question">
         <span class="question-label"></span>
@@ -338,6 +501,102 @@
       </label>
     </template>
 
-    <script src="/app.js?v=20260413" type="module"></script>
+    <script>
+      (function () {
+        window.__coachAppReady = false;
+        window.__coachModuleLoaded = false;
+        window.__coachModuleReady = false;
+        window.__coachShellLoadedAt = new Date().toISOString();
+        const appChip = document.getElementById('app-chip');
+        if (appChip) {
+          appChip.textContent = 'App: shell charge';
+        }
+        try {
+          fetch('/api/debug/boot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              data_dir: 'data',
+              event: 'html-shell',
+              stage: 'html-shell',
+              detail: 'inline shell loaded',
+              state: 'info',
+              app_version: '20260414-navfix17',
+              timestamp: new Date().toISOString()
+            }),
+            keepalive: true
+          }).catch(() => {});
+        } catch (error) {
+          console.warn(error);
+        }
+        const loader = async () => {
+          const chip = document.getElementById('app-chip');
+          if (chip && chip.textContent === 'App: shell charge') {
+            chip.textContent = 'App: module charge...';
+          }
+          try {
+            await import('/app.js?v=20260414-navfix17');
+            window.__coachModuleLoaded = true;
+            if (chip && chip.textContent === 'App: module charge...') {
+              chip.textContent = 'App: module importe';
+              chip.classList.remove('warn');
+            }
+            fetch('/api/debug/boot', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                data_dir: 'data',
+                event: 'module-imported',
+                stage: 'module-imported',
+                detail: 'app.js imported successfully',
+                state: 'info',
+                app_version: '20260414-navfix17',
+                timestamp: new Date().toISOString()
+              }),
+              keepalive: true
+            }).catch(() => {});
+          } catch (error) {
+            console.error(error);
+            if (chip) {
+              chip.textContent = 'App: erreur module';
+              chip.classList.add('error');
+            }
+            fetch('/api/debug/boot', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                data_dir: 'data',
+                event: 'module-import-error',
+                stage: 'module-import-error',
+                detail: error && error.message ? error.message : String(error),
+                state: 'error',
+                app_version: '20260414-navfix17',
+                timestamp: new Date().toISOString()
+              }),
+              keepalive: true
+            }).catch(() => {});
+          }
+        };
+        setTimeout(loader, 0);
+        setTimeout(() => {
+          if (!window.__coachAppReady) {
+            const chip = document.getElementById('app-chip');
+            if (chip && chip.textContent === 'App: shell charge') {
+              chip.textContent = 'App: module en attente';
+              chip.classList.add('warn');
+            } else if (chip && chip.textContent === 'App: module charge...') {
+              chip.textContent = 'App: bootstrap en attente';
+              chip.classList.add('warn');
+            }
+          }
+        }, 3000);
+      })();
+    </script>
   </body>
 </html>
+
+
+
+
+
+

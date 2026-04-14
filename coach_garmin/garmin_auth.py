@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import importlib.metadata
 import hashlib
 import json
+import traceback
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -27,6 +29,9 @@ from coach_garmin.contracts import ArtifactRecord, SyncManifest
 from coach_garmin.env import resolve_secret
 from coach_garmin.storage import ensure_data_dirs, new_run_id, now_utc, write_json, write_raw_payload
 from coach_garmin.sync_state import load_sync_summary, lookup_artifact_index, record_sync_run
+
+
+SYNC_DEBUG_LOG_PATH = Path(__file__).resolve().parent.parent / "logs" / "garmin-sync-debug.jsonl"
 
 
 class GarminClientProtocol(Protocol):
@@ -120,6 +125,53 @@ def _date_strings(window: SyncDateRange) -> list[str]:
 def _hash_payload(payload: Any) -> str:
     serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True).encode("utf-8")
     return hashlib.sha256(serialized).hexdigest()
+
+
+def _append_sync_debug_event(event: dict[str, Any]) -> None:
+    SYNC_DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "timestamp": now_utc().isoformat(),
+        **event,
+    }
+    with SYNC_DEBUG_LOG_PATH.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+        handle.write("\n")
+
+
+def describe_auth_environment(
+    *,
+    tokenstore_path: Path = DEFAULT_GARMIN_TOKENSTORE,
+    env_file: Path = DEFAULT_ENV_FILE,
+    email_env: str = DEFAULT_GARMIN_EMAIL_ENV,
+    password_env: str = DEFAULT_GARMIN_PASSWORD_ENV,
+) -> dict[str, Any]:
+    tokenstore_path = tokenstore_path.resolve()
+    tokenstore_exists = tokenstore_path.exists()
+    tokenstore_size = tokenstore_path.stat().st_size if tokenstore_exists else None
+    tokenstore_mtime = datetime.fromtimestamp(tokenstore_path.stat().st_mtime, UTC).isoformat() if tokenstore_exists else None
+    email = resolve_secret(email_env, env_file=env_file)
+    password = resolve_secret(password_env, env_file=env_file)
+    try:
+        package_version = importlib.metadata.version("garminconnect")
+    except Exception:
+        package_version = None
+    return {
+        "package": "garminconnect",
+        "package_version": package_version,
+        "tokenstore_path": str(tokenstore_path),
+        "tokenstore_exists": tokenstore_exists,
+        "tokenstore_size": tokenstore_size,
+        "tokenstore_mtime": tokenstore_mtime,
+        "tokenstore_parent_exists": tokenstore_path.parent.exists(),
+        "email_configured": bool(email),
+        "password_configured": bool(password),
+        "env_file": str(env_file),
+        "login_strategy_hint": "mobile SSO / portal fallback via python-garminconnect",
+    }
+
+
+def log_auth_test_event(*, data_dir: Path, event: dict[str, Any]) -> None:
+    _append_sync_debug_event({"event": "auth:test", "data_dir": str(data_dir), **event})
 
 
 def _looks_rate_limited_or_blocked(message: str) -> bool:
@@ -216,8 +268,12 @@ def _build_daily_record(calendar_date: str, payload: Any, **flattened: Any) -> d
     return record
 
 
-def _fetch_activities(client: GarminClientProtocol, window: SyncDateRange) -> list[dict[str, Any]]:
-    activities = client.get_activities_by_date(window.start_text, window.end_text, sortorder="asc")
+def _fetch_activities(client: GarminClientProtocol, window: SyncDateRange, warnings: list[str]) -> list[dict[str, Any]]:
+    try:
+        activities = client.get_activities_by_date(window.start_text, window.end_text, sortorder="asc")
+    except Exception as exc:
+        warnings.append(f"activities:{window.start_text}:{window.end_text}: {exc}")
+        return []
     normalized: list[dict[str, Any]] = []
     for activity in activities:
         activity_type = activity.get("activityType")
@@ -388,6 +444,49 @@ def initialize_garmin_auth(
     }
 
 
+def test_garmin_auth(
+    *,
+    data_dir: Path,
+    tokenstore_path: Path = DEFAULT_GARMIN_TOKENSTORE,
+    env_file: Path = DEFAULT_ENV_FILE,
+    email_env: str = DEFAULT_GARMIN_EMAIL_ENV,
+    password_env: str = DEFAULT_GARMIN_PASSWORD_ENV,
+    client_factory: ClientFactory = _default_client_factory,
+) -> dict[str, Any]:
+    auth_environment = describe_auth_environment(
+        tokenstore_path=tokenstore_path,
+        env_file=env_file,
+        email_env=email_env,
+        password_env=password_env,
+    )
+    try:
+        payload = initialize_garmin_auth(
+            tokenstore_path=tokenstore_path,
+            env_file=env_file,
+            email_env=email_env,
+            password_env=password_env,
+        )
+        event = {"status": "success", "result": payload, "auth_environment": auth_environment}
+        log_auth_test_event(data_dir=data_dir, event=event)
+        return {"ok": True, "auth_environment": auth_environment, "result": payload, "debug_log_path": str(SYNC_DEBUG_LOG_PATH)}
+    except Exception as exc:
+        event = {
+            "status": "error",
+            "error_type": exc.__class__.__name__,
+            "error_message": str(exc),
+            "traceback": traceback.format_exc(),
+            "auth_environment": auth_environment,
+        }
+        log_auth_test_event(data_dir=data_dir, event=event)
+        return {
+            "ok": False,
+            "auth_environment": auth_environment,
+            "error": str(exc),
+            "error_type": exc.__class__.__name__,
+            "debug_log_path": str(SYNC_DEBUG_LOG_PATH),
+        }
+
+
 def run_authenticated_sync(
     data_dir: Path,
     start_date: str | None = None,
@@ -410,6 +509,17 @@ def run_authenticated_sync(
     started_at = now_utc()
     warnings: list[str] = []
     state_summary_before = load_sync_summary(data_dir)
+    _append_sync_debug_event(
+        {
+            "event": "sync:start",
+            "run_id": run_id,
+            "data_dir": str(data_dir),
+            "run_label": run_label or "garmin-auth",
+            "start_date": sync_window.start_text,
+            "end_date": sync_window.end_text,
+            "tokenstore_path": str(tokenstore_path),
+        }
+    )
     client, used_existing_tokenstore = _authenticate_client(
         tokenstore_path=tokenstore_path,
         email=email,
@@ -424,7 +534,7 @@ def run_authenticated_sync(
     datasets_payloads: dict[str, dict[str, Any]] = {
         "activities": {
             "metadata": {"dataset": "activities", "start_date": sync_window.start_text, "end_date": sync_window.end_text},
-            "data": _fetch_activities(client, sync_window),
+            "data": _fetch_activities(client, sync_window, warnings),
         },
         "sleep": {
             "metadata": {"dataset": "sleep", "start_date": sync_window.start_text, "end_date": sync_window.end_text},
@@ -524,9 +634,25 @@ def run_authenticated_sync(
     )
     analytics_summary = rebuild_analytics(data_dir)
 
+    _append_sync_debug_event(
+        {
+            "event": "sync:success",
+            "run_id": run_id,
+            "data_dir": str(data_dir),
+            "start_date": sync_window.start_text,
+            "end_date": sync_window.end_text,
+            "artifacts_imported": len(artifacts),
+            "datasets_seen": sorted(datasets_seen),
+            "warnings": warnings,
+            "manifest_path": str(manifest_path),
+            "tokenstore_path": str(tokenstore_path),
+        }
+    )
+
     return {
         "run_id": run_id,
         "manifest_path": str(manifest_path),
+        "debug_log_path": str(SYNC_DEBUG_LOG_PATH),
         "source_kind": "garmin-authenticated-api",
         "tokenstore_path": str(tokenstore_path),
         "used_existing_tokenstore": used_existing_tokenstore,
@@ -543,3 +669,16 @@ def run_authenticated_sync(
         "coverage_report_path": analytics_summary.get("coverage_report_path"),
         "analytics": analytics_summary,
     }
+
+
+def log_sync_error(*, data_dir: Path, error: Exception, context: dict[str, Any]) -> None:
+    _append_sync_debug_event(
+        {
+            "event": "sync:error",
+            "data_dir": str(data_dir),
+            "error_type": error.__class__.__name__,
+            "error_message": str(error),
+            "traceback": traceback.format_exc(),
+            **context,
+        }
+    )

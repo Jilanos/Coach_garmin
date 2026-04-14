@@ -17,6 +17,7 @@ from coach_garmin.config import (
     DEFAULT_COVERAGE_REPORT_PATH,
     DEFAULT_DATA_DIR,
     DEFAULT_DB_PATH,
+    DEFAULT_BOOT_TRACE_PATH,
     DEFAULT_REPORT_PATH,
     DEFAULT_STATE_DB_PATH,
 )
@@ -335,3 +336,9 @@ def default_coverage_report_path(data_dir: Path) -> Path:
     if data_dir == DEFAULT_DATA_DIR:
         return DEFAULT_COVERAGE_REPORT_PATH
     return data_dir / "reports" / "feature_coverage.json"
+
+
+def default_boot_trace_path(data_dir: Path) -> Path:
+    if data_dir == DEFAULT_DATA_DIR:
+        return DEFAULT_BOOT_TRACE_PATH
+    return data_dir / "reports" / "pwa_boot_trace.jsonl"

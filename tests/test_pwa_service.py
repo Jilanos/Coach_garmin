@@ -64,9 +64,13 @@ class PwaServiceTest(unittest.TestCase):
         self.assertIn("analysis", status)
         self.assertIn("health", status)
         self.assertIn("trend", status["analysis"])
+        self.assertIn("pace_hr_curve", status["analysis"]["trend"])
+        self.assertIn("cadence_daily", status["analysis"]["trend"])
         self.assertIn("latest_run", status["import_status"])
         self.assertIn("sync_state", status["import_status"])
         self.assertIn("weekly_volume_km", status["analysis"]["metrics"])
+        self.assertIn("cadence_7d", status["analysis"]["metrics"])
+        self.assertIn("load_reference_low", status["analysis"]["metrics"])
 
     def test_prepare_coach_questions_returns_clarifications_and_dashboard(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -189,6 +193,38 @@ class PwaServiceTest(unittest.TestCase):
                     finally:
                         server.shutdown()
                         server.server_close()
+
+    def test_sync_endpoint_returns_payload_and_keeps_server_responsive(self) -> None:
+        with TemporaryDirectory() as tmp:
+            data_dir = Path(tmp) / "data"
+            run_import_export(GARMIN_FULL_EXPORT_DIR, data_dir, run_label="pwa-fixture")
+
+            with patch(
+                "coach_garmin.pwa_service.sync_garmin_connect",
+                return_value={
+                    "run_id": "sync-run-1",
+                    "run_label": "pwa-garmin-sync",
+                    "source_kind": "garmin-authenticated-api",
+                    "dashboard": build_workspace_status(data_dir, provider="ollama"),
+                },
+            ):
+                handler = _build_handler(CoachPwaConfig(web_root=Path("web"), default_data_dir=data_dir, host="127.0.0.1", port=0))
+                server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+                port = server.server_address[1]
+                thread = Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+                    body = json.dumps({"data_dir": data_dir.as_posix(), "run_label": "pwa-garmin-sync"})
+                    conn.request("POST", "/api/sync/garmin-connect", body=body, headers={"Content-Type": "application/json"})
+                    response = conn.getresponse()
+                    self.assertEqual(response.status, 200)
+                    payload = json.loads(response.read().decode("utf-8"))
+                    self.assertEqual(payload["run_id"], "sync-run-1")
+                    self.assertEqual(payload["source_kind"], "garmin-authenticated-api")
+                finally:
+                    server.shutdown()
+                    server.server_close()
 
 
 if __name__ == "__main__":

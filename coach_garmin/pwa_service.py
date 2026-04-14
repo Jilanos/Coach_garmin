@@ -82,6 +82,8 @@ def build_workspace_status(
         "sleep_reference_low": latest_metrics.get("sleep_reference_low"),
         "sleep_reference_high": latest_metrics.get("sleep_reference_high"),
         "hrv_7d": latest_metrics.get("hrv_7d"),
+        "hrv_reference_low": latest_metrics.get("hrv_reference_low"),
+        "hrv_reference_high": latest_metrics.get("hrv_reference_high"),
         "resting_hr_7d": latest_metrics.get("resting_hr_7d"),
         "resting_hr_reference_low": latest_metrics.get("resting_hr_reference_low"),
         "resting_hr_reference_high": latest_metrics.get("resting_hr_reference_high"),
@@ -89,6 +91,7 @@ def build_workspace_status(
         "cadence_28d": latest_metrics.get("cadence_28d"),
         "cadence_reference_low": latest_metrics.get("cadence_reference_low"),
         "cadence_reference_high": latest_metrics.get("cadence_reference_high"),
+        "cadence_target_spm": latest_metrics.get("cadence_target_spm", 170),
         "fatigue_flag": latest_metrics.get("fatigue_flag"),
         "overreaching_flag": latest_metrics.get("overreaching_flag"),
         "training_phase": analysis.get("training_phase"),
@@ -104,7 +107,16 @@ def build_workspace_status(
         "weekly_bike_days": history_7d.get("recent_bike_days"),
         "average_pace_21d": (analysis.get("windows") or {}).get("21d", {}).get("average_pace_min_per_km"),
         "threshold_pace_min_per_km": pace_context.get("threshold_pace_min_per_km"),
+        "running_pace_7d": latest_metrics.get("running_pace_7d"),
+        "running_hr_7d": latest_metrics.get("running_hr_7d"),
+        "running_pace_reference_low": latest_metrics.get("running_pace_reference_low"),
+        "running_pace_reference_high": latest_metrics.get("running_pace_reference_high"),
+        "running_hr_reference_low": latest_metrics.get("running_hr_reference_low"),
+        "running_hr_reference_high": latest_metrics.get("running_hr_reference_high"),
         "max_hr_estimate": max_hr_estimate,
+        "pace_hr_curve_debug": latest_metrics.get("pace_hr_curve_debug"),
+        "heart_rate_zone_share": latest_metrics.get("heart_rate_zone_share"),
+        "heart_rate_zone_share_running": latest_metrics.get("heart_rate_zone_share_running"),
     }
     import_state = {
         "available": bool(metrics.get("db_available", False)),
@@ -317,7 +329,7 @@ def recalculate_workspace(
     )
     return {
         "ok": True,
-        "message": "Retraitement local terminé.",
+        "message": "Retraitement local terminÃ©.",
         "analytics": analytics_summary,
         "dashboard": dashboard,
     }
@@ -410,8 +422,8 @@ def _build_reset_cache_page(next_url: str, version: str) -> str:
     <main class="card">
       <h1>Coach Garmin: purge du cache local</h1>
       <p class="muted"><span class="spinner" aria-hidden="true"></span>Je nettoie les caches PWA et les service workers, puis je redirige vers la version {escaped_version}.</p>
-      <p class="muted">Si rien ne bouge dans l'UI après ça, on saura que le problème ne vient plus du cache navigateur.</p>
-      <div class="mono" id="status">Démarrage de la purge…</div>
+      <p class="muted">Si rien ne bouge dans l'UI aprÃ¨s Ã§a, on saura que le problÃ¨me ne vient plus du cache navigateur.</p>
+      <div class="mono" id="status">DÃ©marrage de la purgeâ€¦</div>
     </main>
     <script>
       const nextUrl = {escaped_next};
@@ -438,11 +450,11 @@ def _build_reset_cache_page(next_url: str, version: str) -> str:
       }}
       (async () => {{
         try {{
-          status.textContent = 'Purge du cache PWA en cours…';
+          status.textContent = 'Purge du cache PWA en coursâ€¦';
           await clearCaches();
-          status.textContent = 'Cache purgé. Redirection vers l\\'app…';
+          status.textContent = 'Cache purgÃ©. Redirection vers l\\'appâ€¦';
         }} catch (error) {{
-          status.textContent = `Purge terminée avec avertissement: ${{error.message}}`;
+          status.textContent = `Purge terminÃ©e avec avertissement: ${{error.message}}`;
         }} finally {{
           setTimeout(() => {{ location.replace(nextUrl); }}, 400);
         }}
@@ -527,7 +539,13 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
             "daily_load_ratio": [],
             "daily_sleep": [],
             "daily_resting_hr": [],
+            "daily_hrv": [],
+            "daily_running_pace": [],
+            "daily_running_hr": [],
             "pace_hr_sessions": [],
+            "heart_rate_zone_share": {"distribution": []},
+            "heart_rate_zone_share_running": {"distribution": []},
+            "pace_hr_curve_debug": {},
         }
 
     con = duckdb.connect(str(db_path), read_only=True)
@@ -541,7 +559,13 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
                 "daily_load_ratio": [],
                 "daily_sleep": [],
                 "daily_resting_hr": [],
+                "daily_hrv": [],
+                "daily_running_pace": [],
+                "daily_running_hr": [],
                 "pace_hr_sessions": [],
+                "heart_rate_zone_share": {"distribution": []},
+                "heart_rate_zone_share_running": {"distribution": []},
+                "pace_hr_curve_debug": {},
             }
 
         latest_date = _coerce_date(latest_day)
@@ -561,7 +585,7 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
         ).fetchall()
         load_rows = con.execute(
             """
-            SELECT metric_date, load_7d, load_ratio_7_28, sleep_hours_7d, resting_hr_7d
+            SELECT metric_date, load_7d, load_ratio_7_28, sleep_hours_7d, resting_hr_7d, hrv_7d
             FROM derived_daily_metrics
             WHERE metric_date >= ?
             ORDER BY metric_date
@@ -570,7 +594,7 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
         ).fetchall()
         pace_rows = con.execute(
             """
-            SELECT activity_date, activity_type, duration_seconds, distance_meters, average_hr
+            SELECT activity_date, activity_type, duration_seconds, distance_meters, average_hr, raw_payload
             FROM activities
             WHERE activity_date >= ?
             ORDER BY activity_date DESC, started_at DESC
@@ -578,11 +602,67 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
             """,
             [window_start.isoformat()],
         ).fetchall()
+        zone_rows = con.execute(
+            """
+            SELECT max_hr, zone1_floor, zone2_floor, zone3_floor, zone4_floor, zone5_floor
+            FROM heart_rate_zones
+            LIMIT 1
+            """
+        ).fetchall()
     finally:
         con.close()
 
     running_rows = [row for row in pace_rows if _is_running_type(row[1])]
     summary_rows = running_rows if running_rows else pace_rows
+    zone_row = zone_rows[0] if zone_rows else None
+    max_hr = float(zone_row[0]) if zone_row and zone_row[0] is not None else None
+    zone_floors = [zone_row[index] if zone_row and len(zone_row) > index and zone_row[index] is not None else None for index in range(1, 6)]
+    def _zone_for_hr(value: float | None) -> int | None:
+        if value is None:
+            return None
+        if zone_floors[1] is not None:
+            if value < zone_floors[1]:
+                return 1
+            if zone_floors[2] is not None and value < zone_floors[2]:
+                return 2
+            if zone_floors[3] is not None and value < zone_floors[3]:
+                return 3
+            if zone_floors[4] is not None and value < zone_floors[4]:
+                return 4
+            return 5
+        if max_hr:
+            ratio = value / max_hr
+            if ratio < 0.6:
+                return 1
+            if ratio < 0.7:
+                return 2
+            if ratio < 0.8:
+                return 3
+            if ratio < 0.9:
+                return 4
+            return 5
+        return 5 if value >= 175 else 4 if value >= 160 else 3 if value >= 145 else 2 if value >= 130 else 1
+    def _zone_distribution(rows, predicate):
+        zone_seconds = {f"zone_{index}": 0.0 for index in range(1, 6)}
+        total_seconds = 0.0
+        source_count = 0
+        for row in rows:
+            if not predicate(row[1]):
+                continue
+            duration_seconds = float(row[2] or 0.0)
+            avg_hr = float(row[4]) if row[4] is not None else None
+            zone = _zone_for_hr(avg_hr)
+            if duration_seconds <= 0 or zone is None:
+                continue
+            zone_seconds[f"zone_{zone}"] += duration_seconds
+            total_seconds += duration_seconds
+            source_count += 1
+        distribution = []
+        for index in range(1, 6):
+            seconds = zone_seconds[f"zone_{index}"]
+            share = (seconds / total_seconds) if total_seconds else None
+            distribution.append({"zone": index, "seconds": round(seconds, 1), "minutes": round(seconds / 60.0, 1), "share": round(share, 3) if share is not None else None})
+        return {"distribution": distribution, "total_seconds": round(total_seconds, 1), "source_count": source_count, "method": "Approximate activity-duration weighting by average HR"}
     daily_volume = [
         {
             "date": str(row[0]),
@@ -604,6 +684,10 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
         {"date": str(row[0]), "resting_hr": row[4]}
         for row in load_rows
     ]
+    daily_hrv = [
+        {"date": str(row[0]), "hrv_ms": row[5]}
+        for row in load_rows
+    ]
     daily_bike_volume = [
         {
             "date": str(row[0]),
@@ -611,6 +695,33 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
         }
         for row in volume_rows
     ]
+    daily_running_pace = []
+    daily_running_hr = []
+    pace_by_day: dict[str, list[tuple[float, float]]] = {}
+    hr_by_day: dict[str, list[tuple[float, float]]] = {}
+    for row in pace_rows:
+      if not _is_running_type(row[1]):
+        continue
+      activity_date = str(row[0]) if row[0] is not None else None
+      duration_seconds = float(row[2] or 0.0)
+      distance_meters = float(row[3] or 0.0)
+      avg_hr = float(row[4]) if row[4] is not None else None
+      if activity_date and duration_seconds > 0 and distance_meters > 0:
+        pace = _pace_min_per_km(duration_seconds / 60.0, distance_meters / 1000.0)
+        if pace is not None:
+          pace_by_day.setdefault(activity_date, []).append((pace, max(duration_seconds, 60.0)))
+        if avg_hr is not None:
+          hr_by_day.setdefault(activity_date, []).append((avg_hr, max(duration_seconds, 60.0)))
+    for metric_date, samples in pace_by_day.items():
+      total_weight = sum(weight for _, weight in samples)
+      if total_weight > 0:
+        daily_running_pace.append({"date": metric_date, "pace_min_per_km": round(sum(value * weight for value, weight in samples) / total_weight, 2)})
+    for metric_date, samples in hr_by_day.items():
+      total_weight = sum(weight for _, weight in samples)
+      if total_weight > 0:
+        daily_running_hr.append({"date": metric_date, "heart_rate": round(sum(value * weight for value, weight in samples) / total_weight, 1)})
+    zone_distribution_all = _zone_distribution(pace_rows, lambda activity_type: True)
+    zone_distribution_running = _zone_distribution(pace_rows, _is_running_type)
     pace_hr_sessions = [
         {
             "date": str(row[0]),
@@ -621,13 +732,30 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
         for row in reversed(summary_rows[:8])
         if (row[2] or 0.0) > 0 and (row[3] or 0.0) > 0
     ]
+    pace_hr_curve_debug = {
+        "input_points": len(running_rows),
+        "curve_points": len(pace_hr_sessions),
+        "min_points_required": 3,
+        "ready": len(pace_hr_sessions) >= 3,
+        "blocking_reasons": [] if len(pace_hr_sessions) >= 3 else [
+            "Pas assez de sÃ©ances running avec allure et FC exploitables",
+            "Il faut au moins 3 points stables pour construire la courbe",
+            "Les sÃ©ances sans distance, sans durÃ©e ou sans FC sont ignorÃ©es",
+        ],
+    }
     return {
         "daily_volume": daily_volume,
         "daily_bike_volume": daily_bike_volume,
         "daily_load_ratio": daily_load_ratio,
         "daily_sleep": daily_sleep,
         "daily_resting_hr": daily_resting_hr,
+        "daily_hrv": daily_hrv,
+        "daily_running_pace": daily_running_pace,
+        "daily_running_hr": daily_running_hr,
         "pace_hr_sessions": pace_hr_sessions,
+        "pace_hr_curve_debug": pace_hr_curve_debug,
+        "heart_rate_zone_share": zone_distribution_all,
+        "heart_rate_zone_share_running": zone_distribution_running,
     }
 
 

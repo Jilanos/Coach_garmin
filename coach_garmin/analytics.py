@@ -215,6 +215,14 @@ def _activity_speed_mps(duration_seconds: float | None, distance_meters: float |
     return distance_meters / duration_seconds
 
 
+def _pace_min_per_km(duration_minutes: float | None, distance_km: float | None) -> float | None:
+    if duration_minutes in (None, 0) or distance_km in (None, 0):
+        return None
+    if duration_minutes <= 0 or distance_km <= 0:
+        return None
+    return duration_minutes / distance_km
+
+
 def _safe_json_loads(value: str | None) -> dict[str, Any]:
     if not value:
         return {}
@@ -550,6 +558,46 @@ def _build_pace_hr_curve(points: list[dict[str, Any]], max_points: int = 18) -> 
     return curve_rows[:max_points]
 
 
+def _build_pace_hr_curve_diagnostics(points: list[dict[str, Any]], curve: list[dict[str, Any]]) -> dict[str, Any]:
+    valid_points = [
+        point
+        for point in points
+        if point.get("pace_min_per_km") is not None and point.get("heart_rate") is not None
+    ]
+    summary = {
+        "input_points": len(points),
+        "valid_points": len(valid_points),
+        "curve_points": len(curve),
+        "missing_pace_or_hr": 0,
+        "missing_cadence": 0,
+        "stability_threshold": {
+            "min_points": 3,
+            "min_duration_seconds": 600,
+            "min_distance_meters": 2000,
+        },
+        "ready": len(curve) >= 3,
+    }
+    for point in points:
+        if point.get("pace_min_per_km") is None or point.get("heart_rate") is None:
+            summary["missing_pace_or_hr"] += 1
+        if point.get("cadence_spm") is None:
+            summary["missing_cadence"] += 1
+    if not summary["ready"]:
+        reasons = []
+        if len(valid_points) < 3:
+            reasons.append("Il faut au moins 3 sorties running stables avec allure et FC exploitables.")
+        if summary["missing_pace_or_hr"]:
+            reasons.append(f"{summary['missing_pace_or_hr']} activité(s) running n'ont pas d'allure ou de FC exploitable.")
+        if summary["missing_cadence"]:
+            reasons.append(f"{summary['missing_cadence']} activité(s) running n'ont pas de cadence exploitable.")
+        reasons.append("Les échauffements, retours au calme et fractionnés trop courts sont sous-pondérés ou exclus.")
+        reasons.append("Une activité doit durer au moins 10 min et 2 km environ pour peser dans la courbe.")
+        summary["blocking_reasons"] = reasons
+    else:
+        summary["blocking_reasons"] = []
+    return summary
+
+
 def _build_cadence_daily_series(activities_rows: list[dict[str, Any]]) -> dict[str, float]:
     by_day: dict[str, list[tuple[float, float]]] = {}
     for row in activities_rows:
@@ -571,6 +619,135 @@ def _build_cadence_daily_series(activities_rows: list[dict[str, Any]]) -> dict[s
         weighted = sum(value * weight for value, weight in samples) / total_weight
         daily[metric_date] = round(weighted, 1)
     return daily
+
+
+def _build_running_daily_series(activities_rows: list[dict[str, Any]]) -> tuple[dict[str, float], dict[str, float]]:
+    pace_by_day: dict[str, list[tuple[float, float]]] = {}
+    hr_by_day: dict[str, list[tuple[float, float]]] = {}
+    for row in activities_rows:
+        if not _is_running_type(row.get("activity_type")):
+            continue
+        activity_date = row.get("activity_date")
+        if activity_date is None:
+            continue
+        duration_seconds = _parse_float(row.get("duration_seconds")) or 0.0
+        distance_meters = _parse_float(row.get("distance_meters")) or 0.0
+        if duration_seconds <= 0 or distance_meters <= 0:
+            continue
+        pace = _pace_min_per_km(duration_seconds / 60.0, distance_meters / 1000.0)
+        if pace is not None and 2.5 <= pace <= 12.0:
+            pace_by_day.setdefault(str(activity_date), []).append((pace, max(duration_seconds, 60.0)))
+        avg_hr = _parse_float(row.get("average_hr"))
+        if avg_hr is not None and 60 <= avg_hr <= 220:
+            hr_by_day.setdefault(str(activity_date), []).append((avg_hr, max(duration_seconds, 60.0)))
+    pace_daily: dict[str, float] = {}
+    hr_daily: dict[str, float] = {}
+    for metric_date, samples in pace_by_day.items():
+        total_weight = sum(weight for _, weight in samples)
+        if total_weight <= 0:
+            continue
+        pace_daily[metric_date] = round(sum(value * weight for value, weight in samples) / total_weight, 2)
+    for metric_date, samples in hr_by_day.items():
+        total_weight = sum(weight for _, weight in samples)
+        if total_weight <= 0:
+            continue
+        hr_daily[metric_date] = round(sum(value * weight for value, weight in samples) / total_weight, 1)
+    return pace_daily, hr_daily
+
+
+def _extract_zone_thresholds(heart_rate_zone_rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    rows = heart_rate_zone_rows or []
+    row = next((item for item in rows if isinstance(item, dict)), {})
+    floors = [
+        _parse_float(row.get("zone1_floor")),
+        _parse_float(row.get("zone2_floor")),
+        _parse_float(row.get("zone3_floor")),
+        _parse_float(row.get("zone4_floor")),
+        _parse_float(row.get("zone5_floor")),
+    ]
+    max_hr = _parse_float(row.get("max_hr"))
+    resting_hr = _parse_float(row.get("resting_hr"))
+    return {
+        "resting_hr": resting_hr,
+        "max_hr": max_hr,
+        "zone_floors": floors,
+    }
+
+
+def _zone_bucket_for_heart_rate(value: float | None, thresholds: dict[str, Any]) -> int | None:
+    if value is None:
+        return None
+    floors = [floor for floor in thresholds.get("zone_floors", []) if floor is not None]
+    if len(floors) >= 5:
+        if value < floors[1]:
+            return 1
+        if value < floors[2]:
+            return 2
+        if value < floors[3]:
+            return 3
+        if value < floors[4]:
+            return 4
+        return 5
+    max_hr = _parse_float(thresholds.get("max_hr"))
+    if max_hr is not None and max_hr > 0:
+        ratio = value / max_hr
+        if ratio < 0.6:
+            return 1
+        if ratio < 0.7:
+            return 2
+        if ratio < 0.8:
+            return 3
+        if ratio < 0.9:
+            return 4
+        return 5
+    if value < 130:
+        return 1
+    if value < 145:
+        return 2
+    if value < 160:
+        return 3
+    if value < 175:
+        return 4
+    return 5
+
+
+def _build_zone_duration_distribution(
+    activities_rows: list[dict[str, Any]],
+    thresholds: dict[str, Any],
+    predicate,
+) -> dict[str, Any]:
+    zone_seconds = {f"zone_{index}": 0.0 for index in range(1, 6)}
+    total_seconds = 0.0
+    source_count = 0
+    for row in activities_rows:
+        if not predicate(row.get("activity_type")):
+            continue
+        duration_seconds = _parse_float(row.get("duration_seconds")) or 0.0
+        avg_hr = _parse_float(row.get("average_hr"))
+        zone = _zone_bucket_for_heart_rate(avg_hr, thresholds)
+        if duration_seconds <= 0 or zone is None:
+            continue
+        zone_seconds[f"zone_{zone}"] += duration_seconds
+        total_seconds += duration_seconds
+        source_count += 1
+    distribution: list[dict[str, Any]] = []
+    for index in range(1, 6):
+        seconds = zone_seconds[f"zone_{index}"]
+        share = (seconds / total_seconds) if total_seconds else None
+        distribution.append(
+            {
+                "zone": index,
+                "seconds": round(seconds, 1),
+                "minutes": round(seconds / 60.0, 1),
+                "share": round(share, 3) if share is not None else None,
+            }
+        )
+    return {
+        "distribution": distribution,
+        "total_seconds": round(total_seconds, 1),
+        "source_count": source_count,
+        "method": "Activity duration weighted by average HR zone",
+    }
 
 
 def _build_daily_distance_series(
@@ -1519,7 +1696,11 @@ def _aggregate_wellness(wellness_rows: list[dict[str, Any]]) -> dict[str, dict[s
     return merged
 
 
-def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def compute_metrics(
+    activities_rows: list[dict[str, Any]],
+    wellness_rows: list[dict[str, Any]],
+    heart_rate_zone_rows: list[dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     running_rows = [row for row in activities_rows if _is_running_type(row.get("activity_type"))]
     cycling_rows = [row for row in activities_rows if _is_cycling_type(row.get("activity_type"))]
     load_by_day: dict[str, float] = {}
@@ -1531,11 +1712,17 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
     running_distance_by_day = _build_daily_distance_series(running_rows, _is_running_type)
     cycling_distance_by_day = _build_daily_distance_series(cycling_rows, _is_cycling_type)
     cadence_by_day = _build_cadence_daily_series(running_rows)
+    running_pace_by_day, running_hr_by_day = _build_running_daily_series(running_rows)
+    zone_thresholds = _extract_zone_thresholds(heart_rate_zone_rows)
+    zone_distribution_all = _build_zone_duration_distribution(activities_rows, zone_thresholds, lambda activity_type: True)
+    zone_distribution_running = _build_zone_duration_distribution(running_rows, zone_thresholds, _is_running_type)
     merged_wellness = _aggregate_wellness(wellness_rows)
     all_dates = sorted(
         set(load_by_day)
         | set(running_distance_by_day)
         | set(cycling_distance_by_day)
+        | set(running_pace_by_day)
+        | set(running_hr_by_day)
         | set(merged_wellness)
         | set(cadence_by_day)
     )
@@ -1616,6 +1803,8 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
                 "activity_load": round(load_by_day.get(metric_date, 0.0), 2),
                 "running_distance_km": round(running_distance_by_day.get(metric_date, 0.0), 2),
                 "cycling_distance_km": round(cycling_distance_by_day.get(metric_date, 0.0), 2),
+                "running_pace_min_per_km": running_pace_by_day.get(metric_date),
+                "running_hr": running_hr_by_day.get(metric_date),
                 "load_7d": load_7d,
                 "load_28d": load_28d,
                 "load_ratio_7_28": load_ratio,
@@ -1634,7 +1823,10 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
     load_7d_series = [row["load_7d"] for row in metrics_rows if row.get("load_7d") is not None]
     sleep_7d_series = [row["sleep_hours_7d"] for row in metrics_rows if row.get("sleep_hours_7d") is not None]
     resting_hr_series = [row["resting_hr_7d"] for row in metrics_rows if row.get("resting_hr_7d") is not None]
+    hrv_series = [row["hrv_7d"] for row in metrics_rows if row.get("hrv_7d") is not None]
     cadence_series = [row["cadence_7d"] for row in metrics_rows if row.get("cadence_7d") is not None]
+    running_pace_series = [row["running_pace_min_per_km"] for row in metrics_rows if row.get("running_pace_min_per_km") is not None]
+    running_hr_series = [row["running_hr"] for row in metrics_rows if row.get("running_hr") is not None]
     load_ratio_series = [row["load_ratio_7_28"] for row in metrics_rows if row.get("load_ratio_7_28") is not None]
     cadence_latest = latest.get("cadence_7d")
     cadence_ref_low = _percentile(cadence_series, 0.25)
@@ -1645,9 +1837,16 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
     sleep_ref_high = _percentile(sleep_7d_series, 0.75)
     resting_hr_ref_low = _percentile(resting_hr_series, 0.25)
     resting_hr_ref_high = _percentile(resting_hr_series, 0.75)
+    hrv_ref_low = _percentile(hrv_series, 0.25)
+    hrv_ref_high = _percentile(hrv_series, 0.75)
+    running_pace_ref_low = _percentile(running_pace_series, 0.25)
+    running_pace_ref_high = _percentile(running_pace_series, 0.75)
+    running_hr_ref_low = _percentile(running_hr_series, 0.25)
+    running_hr_ref_high = _percentile(running_hr_series, 0.75)
     load_ratio_ref_low = _percentile(load_ratio_series, 0.25)
     load_ratio_ref_high = _percentile(load_ratio_series, 0.75)
     pace_hr_curve = _build_pace_hr_curve(running_rows)
+    pace_hr_curve_debug = _build_pace_hr_curve_diagnostics(running_rows, pace_hr_curve)
     cadence_trend = [
         {"metric_date": metric_date, "cadence_spm": cadence_by_day[metric_date]}
         for metric_date in sorted(cadence_by_day)
@@ -1664,9 +1863,12 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
             "sleep_hours_7d": "Average recorded sleep duration over the trailing 7 days.",
             "resting_hr_7d": "Average resting heart rate over the trailing 7 days when available.",
             "hrv_7d": "Average HRV over the trailing 7 days when available.",
+            "running_pace_min_per_km": "Weighted average pace from running activities on the day.",
+            "running_hr": "Weighted average running heart rate from running activities on the day.",
             "progression_delta": "Difference between trailing 7-day load and the previous 7-day load.",
             "fatigue_flag": "True when sleep is below 7h or recent HRV is down versus the trailing 28-day baseline.",
             "overreaching_flag": "True when recent load is elevated and recovery signals are degraded.",
+            "heart_rate_zone_share": "Approximate distribution of activity time across heart-rate zones using average HR per activity.",
         },
         "trend_insights": {
             "window_days": 90,
@@ -1675,9 +1877,16 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
             "daily_load_ratio": [],
             "daily_sleep": [],
             "daily_resting_hr": [],
+            "daily_hrv": [],
+            "daily_running_pace": [],
+            "daily_running_hr": [],
             "cadence_daily": cadence_trend,
             "pace_hr_curve": pace_hr_curve,
             "curve_point_count": len(pace_hr_curve),
+            "pace_hr_curve_debug": pace_hr_curve_debug,
+            "heart_rate_zone_share": zone_distribution_all,
+            "heart_rate_zone_share_running": zone_distribution_running,
+            "hrv_daily": [],
         },
         "latest_metrics": latest,
     }
@@ -1717,6 +1926,27 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
         }
         for row in metrics_rows
     ]
+    report["trend_insights"]["daily_hrv"] = [
+        {
+            "metric_date": row["metric_date"],
+            "hrv_ms": merged_wellness.get(row["metric_date"], {}).get("hrv_ms"),
+        }
+        for row in metrics_rows
+    ]
+    report["trend_insights"]["daily_running_pace"] = [
+        {
+            "metric_date": row["metric_date"],
+            "pace_min_per_km": row["running_pace_min_per_km"],
+        }
+        for row in metrics_rows
+    ]
+    report["trend_insights"]["daily_running_hr"] = [
+        {
+            "metric_date": row["metric_date"],
+            "heart_rate": row["running_hr"],
+        }
+        for row in metrics_rows
+    ]
     latest.update(
         {
             "load_reference_low": load_ref_low,
@@ -1725,15 +1955,25 @@ def compute_metrics(activities_rows: list[dict[str, Any]], wellness_rows: list[d
             "sleep_reference_high": sleep_ref_high,
             "resting_hr_reference_low": resting_hr_ref_low,
             "resting_hr_reference_high": resting_hr_ref_high,
+            "hrv_reference_low": hrv_ref_low,
+            "hrv_reference_high": hrv_ref_high,
+            "running_pace_reference_low": running_pace_ref_low,
+            "running_pace_reference_high": running_pace_ref_high,
+            "running_hr_reference_low": running_hr_ref_low,
+            "running_hr_reference_high": running_hr_ref_high,
             "load_ratio_reference_low": load_ratio_ref_low,
             "load_ratio_reference_high": load_ratio_ref_high,
             "cadence_7d": cadence_latest,
             "cadence_28d": latest.get("cadence_28d"),
             "cadence_reference_low": cadence_ref_low,
             "cadence_reference_high": cadence_ref_high,
+            "cadence_target_spm": 170,
             "pace_hr_curve_points": len(pace_hr_curve),
             "running_distance_km_7d": round(sum(running_distance_by_day.get(day, 0.0) for day in all_dates[-7:]), 2) if all_dates else 0.0,
             "cycling_distance_km_7d": round(sum(cycling_distance_by_day.get(day, 0.0) for day in all_dates[-7:]), 2) if all_dates else 0.0,
+            "pace_hr_curve_debug": pace_hr_curve_debug,
+            "heart_rate_zone_share": zone_distribution_all,
+            "heart_rate_zone_share_running": zone_distribution_running,
         }
     )
     return metrics_rows, report
@@ -1768,7 +2008,7 @@ def rebuild_analytics(data_dir: Path) -> dict[str, Any]:
             heart_rate_zone_rows,
             lineage_rows,
         )
-        metrics_rows, report = compute_metrics(activities_rows, wellness_rows)
+        metrics_rows, report = compute_metrics(activities_rows, wellness_rows, heart_rate_zone_rows)
         if metrics_rows:
             con.executemany(
                 "INSERT INTO derived_daily_metrics VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",

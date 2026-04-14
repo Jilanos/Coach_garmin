@@ -8,9 +8,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <meta name="description" content="Coach ultra perso local-first" />
-    <link rel="manifest" href="/manifest.webmanifest?v=20260414-navfix17" />
-    <link rel="icon" href="/icon.svg?v=20260414-navfix17" type="image/svg+xml" />
-    <link rel="stylesheet" href="/styles.css?v=20260414-navfix17" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20260414-navfix18" />
+    <link rel="icon" href="/icon.svg?v=20260414-navfix18" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css?v=20260414-navfix18" />
     <title>Coach ultra perso</title>
   </head>
   <body>
@@ -57,7 +57,7 @@
 
         <div class="sidebar-footer">
           <div class="workspace-note" id="workspace-chip">Workspace: -</div>
-          <div class="workspace-note build-chip" id="build-chip">Build: 20260414-navfix17</div>
+          <div class="workspace-note build-chip" id="build-chip">Build: 20260414-navfix18</div>
           <a id="diagnostic-button" class="secondary-button" href="#diagnostic-modal" role="button">Diagnostic</a>
           <button id="install-button" class="ghost-button hidden" type="button">Installer l'app</button>
           <p class="fine-print">PWA installable, offline-first, donn&eacute;es locales par d&eacute;faut.</p>
@@ -151,6 +151,11 @@
                 <strong id="analysis-card">-</strong>
                 <p id="analysis-subtitle">-</p>
               </article>
+              <article class="info-card">
+                <span class="card-label">HRV</span>
+                <strong id="dashboard-hrv-state">-</strong>
+                <p id="dashboard-hrv-detail">-</p>
+              </article>
             </div>
 
             <div class="panel-header">
@@ -162,7 +167,7 @@
             <div id="dashboard-cards" class="metric-grid"></div>
 
             <div class="trend-grid">
-              <article class="trend-card">
+              <article class="trend-card" data-trend-key="running-volume">
                 <div class="trend-header">
                   <div>
                     <span class="card-label">Courbe volume running</span>
@@ -172,7 +177,7 @@
                 </div>
                 <div id="volume-trend" class="sparkline"></div>
               </article>
-              <article class="trend-card">
+              <article class="trend-card" data-trend-key="bike-volume">
                 <div class="trend-header">
                   <div>
                     <span class="card-label">Courbe volume vélo</span>
@@ -182,7 +187,7 @@
                 </div>
                 <div id="bike-volume-trend" class="sparkline"></div>
               </article>
-              <article class="trend-card">
+              <article class="trend-card" data-trend-key="load-ratio">
                 <div class="trend-header">
                   <div>
                     <span class="card-label">Charge relative</span>
@@ -192,7 +197,7 @@
                 </div>
                 <div id="load-ratio-trend" class="sparkline"></div>
               </article>
-              <article class="trend-card">
+              <article class="trend-card" data-trend-key="sleep">
                 <div class="trend-header">
                   <div>
                     <span class="card-label">Sommeil</span>
@@ -202,7 +207,7 @@
                 </div>
                 <div id="sleep-trend" class="sparkline"></div>
               </article>
-              <article class="trend-card">
+              <article class="trend-card" data-trend-key="resting-hr">
                 <div class="trend-header">
                   <div>
                     <span class="card-label">FC repos</span>
@@ -212,7 +217,17 @@
                 </div>
                 <div id="resting-hr-trend" class="sparkline"></div>
               </article>
-              <article class="trend-card">
+              <article class="trend-card" data-trend-key="hrv">
+                <div class="trend-header">
+                  <div>
+                    <span class="card-label">HRV</span>
+                    <strong>90 derniers jours</strong>
+                  </div>
+                  <p id="hrv-trend-summary">-</p>
+                </div>
+                <div id="hrv-trend" class="sparkline"></div>
+              </article>
+              <article class="trend-card" data-trend-key="pace-hr">
                 <div class="trend-header">
                   <div>
                     <span class="card-label">Courbe pace / FC</span>
@@ -222,7 +237,7 @@
                 </div>
                 <div id="pace-hr-trend" class="sparkline"></div>
               </article>
-              <article class="trend-card">
+              <article class="trend-card" data-trend-key="cadence">
                 <div class="trend-header">
                   <div>
                     <span class="card-label">Cadence</span>
@@ -231,6 +246,45 @@
                   <p id="cadence-trend-summary">-</p>
                 </div>
                 <div id="cadence-trend" class="sparkline"></div>
+              </article>
+              <article class="trend-card" data-trend-key="pace-cadence-hr">
+                <div class="trend-header">
+                  <div>
+                    <span class="card-label">Pace / cadence / FC</span>
+                    <strong>Triptyque 90 jours</strong>
+                  </div>
+                  <p id="pace-cadence-hr-trend-summary">-</p>
+                </div>
+                <div id="pace-cadence-hr-trend" class="sparkline"></div>
+              </article>
+            </div>
+
+            <div class="panel-header">
+              <div>
+                <h3>Temps passé en zones FC</h3>
+                <p>Deux vues côte à côte: toutes les activités puis seulement le running, pour lire la charge cardio sans mélanger les sports.</p>
+              </div>
+            </div>
+            <div class="zone-grid">
+              <article class="trend-card zone-card" data-trend-key="zones-all">
+                <div class="trend-header">
+                  <div>
+                    <span class="card-label">Zones FC globales</span>
+                    <strong>Toutes activités</strong>
+                  </div>
+                  <p id="zones-all-summary">-</p>
+                </div>
+                <div id="zones-all-chart" class="zone-chart"></div>
+              </article>
+              <article class="trend-card zone-card" data-trend-key="zones-running">
+                <div class="trend-header">
+                  <div>
+                    <span class="card-label">Zones FC running</span>
+                    <strong>Running uniquement</strong>
+                  </div>
+                  <p id="zones-running-summary">-</p>
+                </div>
+                <div id="zones-running-chart" class="zone-chart"></div>
               </article>
             </div>
           </section>
@@ -348,6 +402,14 @@
                   <option value="paper">Paper</option>
                   <option value="forest">Forest</option>
                   <option value="contrast">Contrast</option>
+                  <option value="ocean">Ocean</option>
+                  <option value="ember">Ember</option>
+                  <option value="sunrise">Sunrise</option>
+                  <option value="midnight">Midnight</option>
+                  <option value="graphite">Graphite</option>
+                  <option value="aurora">Aurora</option>
+                  <option value="sand">Sand</option>
+                  <option value="rose">Rose</option>
                 </select>
               </label>
               <label>
@@ -521,7 +583,7 @@
               stage: 'html-shell',
               detail: 'inline shell loaded',
               state: 'info',
-              app_version: '20260414-navfix17',
+              app_version: '20260414-navfix18',
               timestamp: new Date().toISOString()
             }),
             keepalive: true
@@ -535,7 +597,7 @@
             chip.textContent = 'App: module charge...';
           }
           try {
-            await import('/app.js?v=20260414-navfix17');
+            await import('/app.js?v=20260414-navfix18');
             window.__coachModuleLoaded = true;
             if (chip && chip.textContent === 'App: module charge...') {
               chip.textContent = 'App: module importe';
@@ -550,7 +612,7 @@
                 stage: 'module-imported',
                 detail: 'app.js imported successfully',
                 state: 'info',
-                app_version: '20260414-navfix17',
+                app_version: '20260414-navfix18',
                 timestamp: new Date().toISOString()
               }),
               keepalive: true
@@ -570,7 +632,7 @@
                 stage: 'module-import-error',
                 detail: error && error.message ? error.message : String(error),
                 state: 'error',
-                app_version: '20260414-navfix17',
+                app_version: '20260414-navfix18',
                 timestamp: new Date().toISOString()
               }),
               keepalive: true
@@ -594,6 +656,7 @@
     </script>
   </body>
 </html>
+
 
 
 

@@ -23,13 +23,11 @@
 
 ```mermaid
 %% logics-kind: request
-%% logics-signature: request|scientific-charts-centered-timeframe-selector|center-the-chart-area-inside-the-modal|ac1-center-chart-panels-and-add-timef
+%% logics-signature: request|scientific-charts-centered-timeframe-sel|center-the-chart-area-inside-the|ac1-chart-modals-are-centered-and
 flowchart TD
-    Input[Dashboard charts] --> Layout[Center chart panels]
-    Layout --> Range[Add timeframe selector]
-    Range --> Text[Fix French text rendering]
-    Text --> Output[Readable scientific charts]
-    Output --> Backlog[Backlog slice]
+    Trigger[Scientific charts centered timeframe selec] --> Need[Center the chart area inside the]
+    Need --> Outcome[AC1: Chart modals are centered and]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Acceptance criteria

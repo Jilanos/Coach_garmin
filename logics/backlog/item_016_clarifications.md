@@ -27,10 +27,10 @@
 %% logics-kind: backlog
 %% logics-signature: backlog|harden-utf-8-and-french-text-handling-en|req-016-harden-utf-8-and-french-text-han|standardize-utf-8-and-unicode-normalizat|ac1-french-accents-and-diacritics-displa
 flowchart TD
-    Request[req_016_harden_utf_8_and_french_text_handl] --> Problem[Standardize UTF 8 and Unicode normalization]
-    Problem --> Scope[End to end text policy]
-    Scope --> Acceptance[AC1 French accents and diacritics display]
-    Acceptance --> Tasks[Execution tasks]
+    Request[req_016_harden_utf_8_and_french_text_handl] --> Problem[Standardize UTF-8 and Unicode normalizatio]
+    Problem --> Scope[Harden UTF-8 and French Text Handling]
+    Scope --> Acceptance[AC1: French accents and diacritics display]
+    Acceptance --> Tasks[task_016_clarifications]
 ```
 
 # Acceptance criteria

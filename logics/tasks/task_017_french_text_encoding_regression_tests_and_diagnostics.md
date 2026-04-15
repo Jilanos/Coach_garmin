@@ -23,9 +23,9 @@
 %% logics-signature: task|french-text-encoding-regression-tests-an|item-016-clarifications|1-add-regression-fixtures-and-test|run-the-relevant-automated-tests-for
 stateDiagram-v2
     state "item_016_clarifications" as Backlog
-    state "1. Add regression fixtures and test cases" as Scope
-    state "2. Add diagnostics for encoding drift and" as Build
-    state "3. Checkpoint the wave in a" as Verify
+    state "1. Add regression fixtures and test" as Scope
+    state "2. Add or extend diagnostics so" as Build
+    state "3. Validate the new tests update" as Verify
     state "Run the relevant automated tests for" as Validation
     state "Done report" as Report
     [*] --> Backlog
@@ -105,4 +105,3 @@ stateDiagram-v2
 
 
 # Notes
-

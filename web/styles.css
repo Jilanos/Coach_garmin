@@ -843,14 +843,14 @@ textarea:focus {
 .chart-tooltip {
   position: absolute;
   pointer-events: none;
-  z-index: 2;
+  z-index: 12;
   min-width: 132px;
-  max-width: 220px;
-  padding: 8px 10px;
+  max-width: 260px;
+  padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid var(--line);
-  background: rgba(8, 14, 24, 0.96);
-  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(7, 12, 20, 0.96);
+  color: #f8fbff;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.34);
   transform: translate(10px, -100%);
   opacity: 0;
@@ -864,12 +864,18 @@ textarea:focus {
 .chart-tooltip strong,
 .chart-tooltip span {
   display: block;
+  color: inherit;
+}
+
+.chart-tooltip strong {
+  font-size: 0.84rem;
+  font-weight: 700;
 }
 
 .chart-tooltip small {
   display: block;
   margin-top: 3px;
-  color: var(--muted);
+  color: rgba(248, 251, 255, 0.76);
 }
 
 .curve-wrap {
@@ -1132,6 +1138,8 @@ textarea:focus {
   border-radius: 16px;
   display: grid;
   gap: 4px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .plan-item strong {
@@ -1142,6 +1150,27 @@ textarea:focus {
 .plan-item span {
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.plan-item.is-rest {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--line));
+}
+
+.plan-item.is-easy {
+  background: color-mix(in srgb, var(--accent-2) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent-2) 36%, var(--line));
+}
+
+.plan-item.is-quality {
+  background: color-mix(in srgb, var(--warn) 15%, transparent);
+  border-color: color-mix(in srgb, var(--warn) 38%, var(--line));
+}
+
+.plan-item.is-rest strong,
+.plan-item.is-easy strong,
+.plan-item.is-quality strong {
+  color: var(--text);
 }
 
 .terminal-toolbar {
@@ -1403,6 +1432,20 @@ textarea:focus {
   min-height: 560px;
   display: grid;
   align-items: stretch;
+}
+
+.triptych-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.triptych-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.triptych-chart {
+  min-height: 190px;
 }
 
 .modal-signals {

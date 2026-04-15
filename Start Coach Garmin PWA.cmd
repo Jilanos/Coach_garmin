@@ -10,7 +10,7 @@ if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" >nul 2>nul
 set "LOG_FILE=%LOG_DIR%\pwa-launch.log"
 set "ERR_FILE=%LOG_DIR%\pwa-launch.err.log"
 set "SERVER_PID_FILE=%LOG_DIR%\pwa-server.pid"
-set "RESET_URL=http://127.0.0.1:5284/reset-cache?next=%%2F%%3Fv%%3D20260414-navfix25%%26v%%3D20260414-navfix25"
+set "RESET_URL=http://127.0.0.1:5284/reset-cache?next=%%2F%%3Fv%%3D20260415-navfix29%%26v%%3D20260415-navfix29"
 
 echo Starting Coach Garmin PWA server...
 echo Launch log: %LOG_FILE%
@@ -54,6 +54,7 @@ exit /b 1
 start "" explorer.exe "%RESET_URL%"
 echo Browser opened. Keep this terminal open if you want to inspect the server state.
 exit /b 0
+
 
 
 

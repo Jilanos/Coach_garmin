@@ -55,7 +55,7 @@ The intended layout is:
 %% logics-kind: request
 %% logics-signature: request|sidebar-led-pwa-workspace-for-import-das|describe-the-need|ac1-the-app-shows-a-left
 flowchart TD
-    Trigger[Sidebar-led PWA workspace for import dashb] --> Need[Workspace-led PWA UX]
+    Trigger[Sidebar-led PWA workspace for import dashb] --> Need[Describe the need]
     Need --> Outcome[AC1: The app shows a left]
     Outcome --> Backlog[Backlog slice]
 ```

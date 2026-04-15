@@ -8,9 +8,9 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <meta name="description" content="Coach ultra perso local-first" />
-    <link rel="manifest" href="/manifest.webmanifest?v=20260414-navfix25" />
-    <link rel="icon" href="/icon.svg?v=20260414-navfix25" type="image/svg+xml" />
-    <link rel="stylesheet" href="/styles.css?v=20260414-navfix25" />
+    <link rel="manifest" href="/manifest.webmanifest?v=20260415-navfix29" />
+    <link rel="icon" href="/icon.svg?v=20260415-navfix29" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css?v=20260415-navfix29" />
     <title>Coach ultra perso</title>
   </head>
   <body>
@@ -57,7 +57,7 @@
 
         <div class="sidebar-footer">
           <div class="workspace-note" id="workspace-chip">Workspace: -</div>
-          <div class="workspace-note build-chip" id="build-chip">Build: 20260414-navfix25</div>
+          <div class="workspace-note build-chip" id="build-chip">Build: 20260415-navfix29</div>
           <a id="diagnostic-button" class="secondary-button" href="#diagnostic-modal" role="button">Diagnostic</a>
           <button id="install-button" class="ghost-button hidden" type="button">Installer l'app</button>
           <p class="fine-print">PWA installable, offline-first, donn&eacute;es locales par d&eacute;faut.</p>
@@ -147,7 +147,7 @@
                 <p id="coverage-subtitle">-</p>
               </article>
               <article class="info-card">
-                <span class="card-label">Cadence</span>
+                <span class="card-label">Analyse</span>
                 <strong id="analysis-card">-</strong>
                 <p id="analysis-subtitle">-</p>
               </article>
@@ -240,7 +240,7 @@
               <article class="trend-card" data-trend-key="cadence">
                 <div class="trend-header">
                   <div>
-                    <span class="card-label">Cadence</span>
+                    <span class="card-label">Analyse</span>
                     <strong id="cadence-trend-window">Période active</strong>
                   </div>
                   <p id="cadence-trend-summary">-</p>
@@ -591,7 +591,7 @@
               stage: 'html-shell',
               detail: 'inline shell loaded',
               state: 'info',
-              app_version: '20260414-navfix25',
+              app_version: '20260415-navfix29',
               timestamp: new Date().toISOString()
             }),
             keepalive: true
@@ -605,7 +605,7 @@
             chip.textContent = 'App: module charge...';
           }
           try {
-            await import('/app.js?v=20260414-navfix25');
+            await import('/app.js?v=20260415-navfix29');
             window.__coachModuleLoaded = true;
             if (chip && chip.textContent === 'App: module charge...') {
               chip.textContent = 'App: module importe';
@@ -620,7 +620,7 @@
                 stage: 'module-imported',
                 detail: 'app.js imported successfully',
                 state: 'info',
-                app_version: '20260414-navfix25',
+                app_version: '20260415-navfix29',
                 timestamp: new Date().toISOString()
               }),
               keepalive: true
@@ -640,7 +640,7 @@
                 stage: 'module-import-error',
                 detail: error && error.message ? error.message : String(error),
                 state: 'error',
-                app_version: '20260414-navfix25',
+                app_version: '20260415-navfix29',
                 timestamp: new Date().toISOString()
               }),
               keepalive: true
@@ -664,6 +664,7 @@
     </script>
   </body>
 </html>
+
 
 
 

@@ -28,7 +28,7 @@ flowchart TD
     Request[req_017_scientific_charts_centered_timefra] --> Problem[Center the chart area inside the]
     Problem --> Scope[Scientific charts centered timeframe selec]
     Scope --> Acceptance[AC1: Chart modals are centered and]
-    Acceptance --> Tasks[Execution task]
+    Acceptance --> Tasks[task_018_scientific_charts_centered_timefr]
 ```
 
 # Acceptance criteria

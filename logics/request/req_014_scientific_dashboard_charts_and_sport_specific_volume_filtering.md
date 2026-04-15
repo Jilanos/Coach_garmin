@@ -22,11 +22,11 @@ It has now been superseded by the more complete request/backlog/task chain:
 
 ```mermaid
 %% logics-kind: request
-%% logics-signature: request|scientific-dashboard-charts-and-sport-sp|legacy-precursor-to-scientific-charts-an|req-015-scientific-charts-sport-specific
+%% logics-signature: request|legacy-precursor-to-scientific-charts-an|describe-the-need|ac1-define-a-measurable-outcome
 flowchart TD
-    Legacy[req_014 legacy precursor] --> Current[req_015 scientific charts wave]
-    Current --> Item[item_015 backlog]
-    Item --> Task[task_015 execution]
+    Trigger[Legacy precursor to scientific charts and] --> Need[Describe the need]
+    Need --> Outcome[AC1: Define a measurable outcome]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Companion docs

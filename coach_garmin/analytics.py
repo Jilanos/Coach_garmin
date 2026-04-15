@@ -304,6 +304,20 @@ def _unwrap_split_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
 
 
 def _extract_running_cadence_spm(record: dict[str, Any]) -> float | None:
+    double_cadence = _parse_float(
+        _first(
+            record,
+            "avgDoubleCadence",
+            "averageDoubleCadence",
+            "WEIGHTED_MEAN_DOUBLE_CADENCE",
+            "WEIGHTED_MEAN_DOUBLECADENCE",
+            "doubleCadence",
+        )
+    )
+    if double_cadence is not None:
+        # Garmin exports often expose both "run cadence" (per leg) and
+        # "double cadence" (steps/minute). The coach expects SPM.
+        return round(double_cadence, 2)
     run_cadence = _parse_float(
         _first(
             record,
@@ -315,21 +329,9 @@ def _extract_running_cadence_spm(record: dict[str, Any]) -> float | None:
             "cadence",
         )
     )
-    if run_cadence is not None:
-        return run_cadence
-    double_cadence = _parse_float(
-        _first(
-            record,
-            "avgDoubleCadence",
-            "averageDoubleCadence",
-            "WEIGHTED_MEAN_DOUBLE_CADENCE",
-            "WEIGHTED_MEAN_DOUBLECADENCE",
-            "doubleCadence",
-        )
-    )
-    if double_cadence is None:
+    if run_cadence is None:
         return None
-    return round(double_cadence / 2.0, 2) if double_cadence > 120 else round(double_cadence, 2)
+    return round(run_cadence * 2.0, 2) if run_cadence <= 120 else round(run_cadence, 2)
 
 
 def _is_running_type(activity_type: str | None) -> bool:

@@ -24,9 +24,9 @@ Derived from `logics/backlog/item_016_clarifications.md`.
 %% logics-signature: task|harden-utf-8-and-french-text-handling-en|item-016-clarifications|1-audit-every-text-boundary-and|run-the-relevant-automated-tests-for
 stateDiagram-v2
     state "item_016_clarifications" as Backlog
-    state "1. Audit text boundaries and introduce" as Scope
-    state "2. Update launcher runtime PWA shell and" as Build
-    state "3. Checkpoint the wave in a" as Verify
+    state "1. Audit every text boundary and" as Scope
+    state "2. Update launcher Python IO JSON" as Build
+    state "3. Leave the wave commit-ready validate" as Verify
     state "Run the relevant automated tests for" as Validation
     state "Done report" as Report
     [*] --> Backlog
@@ -106,4 +106,3 @@ stateDiagram-v2
 
 
 # Notes
-

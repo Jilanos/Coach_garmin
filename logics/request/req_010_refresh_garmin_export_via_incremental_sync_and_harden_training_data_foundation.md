@@ -52,7 +52,7 @@ This request is informed by the earlier research on similar projects and by the 
 %% logics-kind: request
 %% logics-signature: request|refresh-garmin-export-via-incremental-sy|describe-the-need|ac1-the-project-can-ingest-a
 flowchart TD
-    Trigger[Refresh Garmin export via incremental sync] --> Need[Baseline plus refresh path]
+    Trigger[Refresh Garmin export via incremental sync] --> Need[Describe the need]
     Need --> Outcome[AC1: The project can ingest a]
     Outcome --> Backlog[Backlog slice]
 ```

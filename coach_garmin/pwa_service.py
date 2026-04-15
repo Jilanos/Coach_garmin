@@ -20,6 +20,8 @@ from coach_garmin.config import DEFAULT_GARMIN_TOKENSTORE, DEFAULT_WEB_HOST, DEF
 from coach_garmin.analytics import (
     _build_pace_hr_curve,
     _build_pace_hr_curve_diagnostics,
+    _build_cadence_daily_series,
+    _is_running_type,
     rebuild_analytics,
 )
 from coach_garmin.garmin_auth import describe_auth_environment, log_sync_error, test_garmin_auth
@@ -36,6 +38,92 @@ class CoachPwaConfig:
     default_data_dir: Path
     host: str = DEFAULT_WEB_HOST
     port: int = DEFAULT_WEB_PORT
+
+
+def _chart_series_ready(series: Any, *, name: str, min_points: int = 1, empty_reason: str = '') -> dict[str, Any]:
+    points = len(series) if isinstance(series, list) else 0
+    if points >= min_points:
+        return {"state": "ready", "label": "Prête", "reason": "", "details": [], "points": points}
+    if points > 0:
+        reason = f"{name}: {points} point(s) exploitable(s), minimum attendu {min_points}."
+        return {"state": "partial_data", "label": "Partielle", "reason": reason, "details": [reason], "points": points}
+    reason = empty_reason or f"{name}: aucune donnée exploitable."
+    return {"state": "unavailable", "label": "Indisponible", "reason": reason, "details": [reason], "points": 0}
+
+
+def _pace_curve_ready(curve_debug: Any, curve: Any) -> dict[str, Any]:
+    curve_debug = curve_debug if isinstance(curve_debug, dict) else {}
+    curve = curve if isinstance(curve, list) else []
+    ready = curve_debug.get("ready") is True and len(curve) >= 3
+    input_points = int(curve_debug.get("input_points") or 0)
+    valid_points = int(curve_debug.get("valid_points") or 0)
+    details: list[str] = []
+    if isinstance(curve_debug.get("blocking_reasons"), list):
+        details.extend([str(item) for item in curve_debug["blocking_reasons"] if item][:5])
+    if input_points <= 0 and valid_points <= 0 and not curve:
+        details.append("Aucun point running exploitable pour construire la courbe.")
+    if valid_points > 0 and len(curve) < 3:
+        details.append("Pas encore assez de points stables pour lisser la courbe correctement.")
+    if ready:
+        return {"state": "ready", "label": "Prête", "reason": "Courbe pace / FC exploitable.", "details": [], "points": len(curve), "input_points": input_points, "valid_points": valid_points}
+    state = "recalculation_required" if (input_points > 0 or valid_points > 0 or details) else "unavailable"
+    label = "Recalcul nécessaire" if state == "recalculation_required" else "Indisponible"
+    reason = details[0] if details else "Courbe pace / FC indisponible."
+    return {"state": state, "label": label, "reason": reason, "details": details or [reason], "points": len(curve), "input_points": input_points, "valid_points": valid_points}
+
+
+def _build_dashboard_readiness(*, metrics: dict[str, Any], analysis: dict[str, Any], import_state: dict[str, Any], trend_series: dict[str, Any]) -> dict[str, Any]:
+    chart_states = {
+        "volume": _chart_series_ready(trend_series.get("daily_volume", []), name="Volume running"),
+        "bike": _chart_series_ready(trend_series.get("daily_bike_volume", []), name="Volume vélo"),
+        "load_ratio": _chart_series_ready(trend_series.get("daily_load_ratio", []), name="Charge relative", empty_reason="Le ratio 7j/28j nécessite des séries de charge locales."),
+        "sleep": _chart_series_ready(trend_series.get("daily_sleep", []), name="Sommeil", empty_reason="Le sommeil est calculé à partir des signaux wellness locaux."),
+        "resting_hr": _chart_series_ready(trend_series.get("daily_resting_hr", []), name="FC repos", empty_reason="La FC repos demande des mesures wellness exploitables."),
+        "hrv": _chart_series_ready(trend_series.get("daily_hrv", []), name="HRV", empty_reason="La HRV dépend des mesures wellness locales."),
+        "cadence": _chart_series_ready(trend_series.get("cadence_daily", []), name="Cadence", empty_reason="La cadence doit remonter depuis les activités running."),
+        "running_pace": _chart_series_ready(trend_series.get("daily_running_pace", []), name="Allure running", empty_reason="Les activités running sont nécessaires pour reconstruire l’allure."),
+        "running_hr": _chart_series_ready(trend_series.get("daily_running_hr", []), name="FC running", empty_reason="Les activités running sont nécessaires pour reconstruire la FC."),
+        "pace_curve": _pace_curve_ready(trend_series.get("pace_hr_curve_debug", {}), trend_series.get("pace_hr_curve", [])),
+    }
+    has_db = bool(metrics.get("db_available"))
+    has_import = bool(import_state.get("available"))
+    any_points = any(int(state.get("points") or 0) > 0 for state in chart_states.values())
+    required_ready = all(chart_states[key]["state"] == "ready" for key in ("volume", "load_ratio", "sleep", "resting_hr", "hrv", "cadence", "running_pace", "running_hr"))
+    pace_ready = chart_states["pace_curve"]["state"] == "ready"
+    details: list[str] = []
+    if not has_db or not has_import:
+        state = "unavailable"
+        label = "Données indisponibles"
+        details.append("Le workspace local n’est pas encore complètement chargé.")
+    elif required_ready and pace_ready:
+        state = "ready"
+        label = "Analyse prête"
+        details.append("Les séries clés sont présentes et la courbe pace / FC est exploitable.")
+    elif chart_states["pace_curve"]["state"] == "recalculation_required" or (has_db and any_points and (not pace_ready or not required_ready)):
+        state = "recalculation_required"
+        label = "Recalcul nécessaire"
+        pace_reason = chart_states["pace_curve"].get("reason")
+        if pace_reason:
+            details.append(str(pace_reason))
+        if not chart_states["cadence"]["points"]:
+            details.append("La cadence ne remonte pas correctement sur la fenêtre active.")
+        if not chart_states["running_pace"]["points"] or not chart_states["running_hr"]["points"]:
+            details.append("Les séries running utiles à la courbe ne sont pas assez stables.")
+    elif any_points:
+        state = "partial_data"
+        label = "Données partielles"
+        details.append("Certaines cartes sont prêtes, d’autres attendent encore des points exploitables.")
+    else:
+        state = "unavailable"
+        label = "Données indisponibles"
+        details.append("Aucune série exploitable n’a encore été chargée.")
+    return repair_text_tree({
+        "state": state,
+        "label": label,
+        "reason": details[0] if details else "Lecture des données indisponible.",
+        "details": details,
+        "chart_states": chart_states,
+    })
 
 
 def build_workspace_status(
@@ -72,6 +160,26 @@ def build_workspace_status(
     sync_state = load_sync_summary(data_dir)
     latest_sync_run = sync_state.get("latest_run")
     trend_series = _build_trend_series(data_dir, days=trend_days) or trend_insights
+    cadence_daily = trend_series.get("cadence_daily", []) if isinstance(trend_series, dict) else []
+    cadence_daily_values = [
+        float(row.get("cadence_spm"))
+        for row in cadence_daily
+        if isinstance(row, dict) and row.get("cadence_spm") is not None
+    ]
+    cadence_fallback_7d = round(sum(cadence_daily_values[-7:]) / len(cadence_daily_values[-7:]), 1) if cadence_daily_values[-7:] else None
+    cadence_fallback_28d = round(sum(cadence_daily_values[-28:]) / len(cadence_daily_values[-28:]), 1) if cadence_daily_values[-28:] else None
+    cadence_fallback_low = round(sorted(cadence_daily_values)[max(0, int(len(cadence_daily_values) * 0.25) - 1)], 1) if cadence_daily_values else None
+    cadence_fallback_high = round(sorted(cadence_daily_values)[min(len(cadence_daily_values) - 1, int(len(cadence_daily_values) * 0.75))], 1) if cadence_daily_values else None
+    cadence_latest_metric = latest_metrics.get("cadence_7d")
+    cadence_metric_suspect = (
+        cadence_latest_metric is None
+        or (
+            cadence_daily_values
+            and cadence_latest_metric is not None
+            and float(cadence_latest_metric) < 120
+            and max(cadence_daily_values) >= 130
+        )
+    )
     heart_rate_zone_rows = metrics.get("heart_rate_zones", {}) if isinstance(metrics.get("heart_rate_zones", {}), dict) else {}
     max_hr_estimate = heart_rate_zone_rows.get("max_hr")
     pace_context = analysis.get("inferred_paces", {}) if isinstance(analysis.get("inferred_paces", {}), dict) else {}
@@ -93,10 +201,10 @@ def build_workspace_status(
         "resting_hr_7d": latest_metrics.get("resting_hr_7d"),
         "resting_hr_reference_low": latest_metrics.get("resting_hr_reference_low"),
         "resting_hr_reference_high": latest_metrics.get("resting_hr_reference_high"),
-        "cadence_7d": latest_metrics.get("cadence_7d"),
-        "cadence_28d": latest_metrics.get("cadence_28d"),
-        "cadence_reference_low": latest_metrics.get("cadence_reference_low"),
-        "cadence_reference_high": latest_metrics.get("cadence_reference_high"),
+        "cadence_7d": cadence_fallback_7d if cadence_metric_suspect else latest_metrics.get("cadence_7d"),
+        "cadence_28d": cadence_fallback_28d if cadence_metric_suspect else latest_metrics.get("cadence_28d"),
+        "cadence_reference_low": cadence_fallback_low if cadence_metric_suspect else latest_metrics.get("cadence_reference_low"),
+        "cadence_reference_high": cadence_fallback_high if cadence_metric_suspect else latest_metrics.get("cadence_reference_high"),
         "cadence_target_spm": latest_metrics.get("cadence_target_spm", 170),
         "fatigue_flag": latest_metrics.get("fatigue_flag"),
         "overreaching_flag": latest_metrics.get("overreaching_flag"),
@@ -139,6 +247,7 @@ def build_workspace_status(
         "reused_artifact_count": sync_state.get("reused_artifact_count"),
         "pending_count": sync_state.get("pending_count"),
     }
+    readiness = _build_dashboard_readiness(metrics=metrics, analysis=analysis, import_state=import_state, trend_series=trend_series)
     return repair_text_tree({
         "data_dir": str(data_dir),
         "workspace": {
@@ -159,6 +268,7 @@ def build_workspace_status(
             "metrics": dashboard_metrics,
             "trend": trend_series,
             "trend_window_days": trend_days,
+            "readiness": readiness,
         },
         "provider": provider_status,
         "health": {
@@ -167,6 +277,7 @@ def build_workspace_status(
             "coverage_path": metrics.get("coverage_report_path"),
             "latest_sync_run": latest_sync_run,
             "sync_state": sync_state,
+            "readiness": readiness,
         },
     })
 
@@ -550,6 +661,7 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
             "daily_hrv": [],
             "daily_running_pace": [],
             "daily_running_hr": [],
+            "cadence_daily": [],
             "pace_hr_sessions": [],
             "heart_rate_zone_share": {"distribution": []},
             "heart_rate_zone_share_running": {"distribution": []},
@@ -571,6 +683,7 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
                 "daily_hrv": [],
                 "daily_running_pace": [],
                 "daily_running_hr": [],
+                "cadence_daily": [],
                 "pace_hr_sessions": [],
                 "heart_rate_zone_share": {"distribution": []},
                 "heart_rate_zone_share_running": {"distribution": []},
@@ -624,6 +737,22 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
 
     running_rows = [row for row in pace_rows if _is_running_type(row[1])]
     summary_rows = running_rows if running_rows else pace_rows
+    cadence_daily_rows = _build_cadence_daily_series(
+        [
+            {
+                "activity_type": row[1],
+                "raw_payload": row[5],
+                "activity_date": row[0],
+                "duration_seconds": row[2],
+            }
+            for row in pace_rows
+            if _is_running_type(row[1])
+        ]
+    )
+    cadence_trend = [
+        {"metric_date": metric_date, "cadence_spm": cadence_daily_rows[metric_date]}
+        for metric_date in sorted(cadence_daily_rows)
+    ]
     zone_row = zone_rows[0] if zone_rows else None
     max_hr = float(zone_row[0]) if zone_row and zone_row[0] is not None else None
     zone_floors = [zone_row[index] if zone_row and len(zone_row) > index and zone_row[index] is not None else None for index in range(1, 6)]
@@ -765,6 +894,7 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         "daily_hrv": daily_hrv,
         "daily_running_pace": daily_running_pace,
         "daily_running_hr": daily_running_hr,
+        "cadence_daily": cadence_trend,
         "pace_hr_sessions": pace_hr_sessions,
         "pace_hr_curve": pace_hr_curve,
         "pace_hr_curve_debug": pace_hr_curve_debug,

@@ -42,12 +42,9 @@
 %% logics-kind: request
 %% logics-signature: request|harden-utf-8-and-french-text-handling-en|standardize-utf-8-and-unicode-normalizat|ac1-french-accents-and-diacritics-displa
 flowchart TD
-    Trigger[French text input] --> Normalize[Normalize to UTF 8 and NFC]
-    Normalize --> Persist[Persist local state and logs]
-    Persist --> Render[Render in PWA CLI and reports]
-    Render --> Validate[Regression tests and debug checks]
-    Validate --> Fix[Fix drift and prevent regressions]
-    Fix --> Normalize
+    Trigger[Harden UTF-8 and French Text Handling] --> Need[Standardize UTF-8 and Unicode normalizatio]
+    Need --> Outcome[AC1: French accents and diacritics display]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Acceptance criteria

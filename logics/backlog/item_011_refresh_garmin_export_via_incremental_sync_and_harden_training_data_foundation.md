@@ -33,12 +33,10 @@ This slice focuses on the data foundation needed by the coach:
 %% logics-kind: backlog
 %% logics-signature: backlog|refresh-garmin-export-via-incremental-sy|req-010-refresh-garmin-export-via-increm|the-project-already-supports-a-stable|ac1-the-project-can-ingest-a
 flowchart TD
-    Request[req 010 refresh garmin export] --> Problem[Baseline export needs refresh]
-    Problem --> Scope[ZIP baseline plus incremental update]
-    Scope --> State[SQLite sync state]
-    Scope --> Analytics[DuckDB training analytics]
-    Analytics --> Coach[Better coaching signals]
-    Coach --> Task[Implementation task]
+    Request[req_010_refresh_garmin_export_via_incremen] --> Problem[The project already supports a stable]
+    Problem --> Scope[Refresh Garmin export via incremental sync]
+    Scope --> Acceptance[AC1: The project can ingest a]
+    Acceptance --> Tasks[task_011_refresh_garmin_export_via_increme]
 ```
 
 # Acceptance criteria
@@ -92,3 +90,4 @@ flowchart TD
 - Keep this backlog item as one bounded delivery slice.
 - If future discovery shows readiness/body battery/recovery should be added, split that into a separate backlog item rather than widening this one.
 - Task `task_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation` was finished via `logics_flow.py finish task` on 2026-04-12.
+- Derived from `logics/request/req_010_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation.md`.

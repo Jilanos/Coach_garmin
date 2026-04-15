@@ -52,10 +52,8 @@ Keep the UI focused on display and interaction, not on rebuilding the data model
 - Validate the series shape and the sport split before closing the wave.
 
 # References
-- `req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`
-- `item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`
-- `prod_003_scientific_dashboard_charts_and_sport_specific_volume_filtering`
-
+- `logics/request/req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md`
+- `logics/backlog/item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md`
 # Follow-up work
 - Add a reusable chart component with axes, hover values, and consistent tick styles.
 - Wire a recalculation button to analytics refresh and derived metric rebuilds.

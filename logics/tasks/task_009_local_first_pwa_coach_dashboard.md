@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and linked request/backlog references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_009_local_first_pwa_coach_dashboard.md`.
 - Derived from backlog item `item_009_local_first_pwa_coach_dashboard`.
 - Source file: `logics\backlog\item_009_local_first_pwa_coach_dashboard.md`.
 - Related request(s): `req_008_local_first_pwa_coach_dashboard`.
@@ -105,3 +106,5 @@ stateDiagram-v2
 - Validation:
   - `.venv\\Scripts\\python -m unittest discover -s tests -v` -> `28/28 OK`
   - `.venv\\Scripts\\python -m compileall coach_garmin tests` -> OK
+
+# Notes

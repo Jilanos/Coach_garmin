@@ -39,13 +39,9 @@
 %% logics-kind: request
 %% logics-signature: request|pwa-coach-ux-polish-and-dashboard-enrich|make-the-first-pwa-version-feel|ac1-the-pwa-landing-screen-presents
 flowchart TD
-    Open[User opens the PWA] --> Read[Read title, data state, and provider state]
-    Read --> Import[See whether Garmin data is already imported]
-    Read --> Chat[Start coaching chat]
-    Chat --> Busy[Show loading state while model thinks]
-    Busy --> Plan[Return a clear coaching result]
-    Plan --> Metrics[Expose richer dashboard metrics]
-    Metrics --> Trust[User trusts the app and keeps using it]
+    Trigger[PWA coach UX polish and dashboard] --> Need[Make the first PWA version feel]
+    Need --> Outcome[AC1: The PWA landing screen presents]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Scope
@@ -114,3 +110,4 @@ flowchart TD
 
 # Backlog
 - `item_010_pwa_coach_ux_polish_and_dashboard_enrichment`
+- `logics/backlog/item_010_pwa_coach_ux_polish_and_dashboard_enrichment.md`

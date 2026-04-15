@@ -1,7 +1,7 @@
 ## req_003_extend_garmin_export_coverage_to_the_full_initial_data_surface - Extend Garmin export coverage to the full initial data surface
 > From version: 0.1.0
 > Schema version: 1.0
-> Status: Draft
+> Status: Done
 > Understanding: 96
 > Confidence: 94
 > Complexity: High
@@ -49,13 +49,11 @@
 
 ```mermaid
 %% logics-kind: request
-%% logics-signature: request|extend-garmin-export-coverage-to-the-f|full-export-archive-->classify-additional-domains-->widen-local-archive-coverage|ac1-the-request-defines-that-the-p
+%% logics-signature: request|extend-garmin-export-coverage-to-the-ful|expand-the-garmin-export-import-pipeline|ac1-the-request-defines-that-coverage
 flowchart TD
-    Archive[Full Garmin export archive] --> Classify[Classify additional domains]
-    Classify --> Model[Map useful data into internal datasets]
-    Classify --> Meta[Keep operational metadata visible]
-    Model --> Coverage[Widen local coverage]
-    Meta --> Coverage
+    Trigger[Extend Garmin export coverage to the] --> Need[Expand the Garmin export import pipeline]
+    Need --> Outcome[AC1: The request defines that coverage]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Acceptance criteria
@@ -109,3 +107,4 @@ flowchart TD
 
 # Backlog
 - `item_003_extend_garmin_export_coverage_to_the_full_initial_data_surface`
+- `logics/backlog/item_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md`

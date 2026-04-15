@@ -52,12 +52,9 @@ This request is informed by the earlier research on similar projects and by the 
 %% logics-kind: request
 %% logics-signature: request|refresh-garmin-export-via-incremental-sy|describe-the-need|ac1-the-project-can-ingest-a
 flowchart TD
-    Zip[ZIP export baseline] --> State[SQLite sync state]
-    Auth[Garmin auth refresh] --> State
-    State --> Duck[DuckDB analytics]
-    Duck --> Coach[Coaching signals]
-    Coach --> Export[Refreshed local view]
-    Export --> Zip
+    Trigger[Refresh Garmin export via incremental sync] --> Need[Baseline plus refresh path]
+    Need --> Outcome[AC1: The project can ingest a]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Scope
@@ -128,3 +125,5 @@ flowchart TD
 
 # Backlog
 - `item_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation`
+
+- `logics/backlog/item_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation.md`

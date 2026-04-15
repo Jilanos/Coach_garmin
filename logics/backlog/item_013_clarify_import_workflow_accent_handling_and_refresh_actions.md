@@ -34,7 +34,7 @@ flowchart TD
     Request[req_012_clarify_import_workflow_accent_han] --> Problem[Make the import workspace easier to]
     Problem --> Scope[Clarify import workflow accent handling an]
     Scope --> Acceptance[AC1: The import page clearly distinguishes]
-    Acceptance --> Tasks[Execution task]
+    Acceptance --> Tasks[task_013_clarify_import_workflow_accent_ha]
 ```
 
 # Acceptance criteria
@@ -92,3 +92,4 @@ flowchart TD
 - Source file: `logics\request\req_012_clarify_import_workflow_accent_handling_and_refresh_actions.md`.
 - Keep this backlog item as one bounded delivery slice; create sibling backlog items for the remaining request coverage instead of widening this doc.
 - Request context seeded into this backlog item from `logics\request\req_012_clarify_import_workflow_accent_handling_and_refresh_actions.md`.
+- Derived from `logics/request/req_012_clarify_import_workflow_accent_handling_and_refresh_actions.md`.

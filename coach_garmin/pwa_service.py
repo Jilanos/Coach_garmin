@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import mimetypes
@@ -17,12 +17,17 @@ from coach_garmin.coach_chat import CoachChatSession
 from coach_garmin.coach_llm import CoachLLMConfig, build_coach_client
 from coach_garmin.coach_tools import LocalCoachToolkit
 from coach_garmin.config import DEFAULT_GARMIN_TOKENSTORE, DEFAULT_WEB_HOST, DEFAULT_WEB_PORT
-from coach_garmin.analytics import rebuild_analytics
+from coach_garmin.analytics import (
+    _build_pace_hr_curve,
+    _build_pace_hr_curve_diagnostics,
+    rebuild_analytics,
+)
 from coach_garmin.garmin_auth import describe_auth_environment, log_sync_error, test_garmin_auth
 from coach_garmin.manual_import import run_import_export
 from coach_garmin.garmin_auth import run_authenticated_sync
 from coach_garmin.storage import default_boot_trace_path
 from coach_garmin.sync_state import load_sync_summary
+from coach_garmin.text_encoding import repair_mojibake_text, repair_text_tree
 
 
 @dataclass(slots=True)
@@ -40,6 +45,7 @@ def build_workspace_status(
     base_url: str | None = None,
     api_key: str | None = None,
     include_provider_probe: bool = False,
+    trend_days: int = 90,
 ) -> dict[str, Any]:
     toolkit = LocalCoachToolkit(data_dir=data_dir)
     metrics = toolkit.metrics()
@@ -65,7 +71,7 @@ def build_workspace_status(
     trend_insights = metrics.get("trend_insights", {}) if isinstance(metrics.get("trend_insights", {}), dict) else {}
     sync_state = load_sync_summary(data_dir)
     latest_sync_run = sync_state.get("latest_run")
-    trend_series = trend_insights or _build_trend_series(data_dir)
+    trend_series = _build_trend_series(data_dir, days=trend_days) or trend_insights
     heart_rate_zone_rows = metrics.get("heart_rate_zones", {}) if isinstance(metrics.get("heart_rate_zones", {}), dict) else {}
     max_hr_estimate = heart_rate_zone_rows.get("max_hr")
     pace_context = analysis.get("inferred_paces", {}) if isinstance(analysis.get("inferred_paces", {}), dict) else {}
@@ -133,7 +139,7 @@ def build_workspace_status(
         "reused_artifact_count": sync_state.get("reused_artifact_count"),
         "pending_count": sync_state.get("pending_count"),
     }
-    return {
+    return repair_text_tree({
         "data_dir": str(data_dir),
         "workspace": {
             "path": str(data_dir),
@@ -152,6 +158,7 @@ def build_workspace_status(
             "signals": analysis.get("signal_highlights", []),
             "metrics": dashboard_metrics,
             "trend": trend_series,
+            "trend_window_days": trend_days,
         },
         "provider": provider_status,
         "health": {
@@ -161,7 +168,7 @@ def build_workspace_status(
             "latest_sync_run": latest_sync_run,
             "sync_state": sync_state,
         },
-    }
+    })
 
 
 def prepare_coach_questions(
@@ -182,12 +189,12 @@ def prepare_coach_questions(
     questions = []
     for key, question, parser in CoachChatSession._clarification_questions(goal_profile, history_context):
         questions.append({"key": key, "question": question, "parser": getattr(parser, "__name__", "callable")})
-    return {
+    return repair_text_tree({
         "goal_profile": goal_profile,
         "questions": questions,
         "analysis": toolkit.analysis(goal_profile),
         "dashboard": build_workspace_status(data_dir, provider=provider, model=model, base_url=base_url, api_key=api_key),
-    }
+    })
 
 
 def generate_coach_plan(
@@ -216,13 +223,13 @@ def generate_coach_plan(
         goal_profile[key] = parser(str(raw_answer).strip())
 
     if pending_questions:
-        return {
+        return repair_text_tree({
             "needs_clarification": True,
             "goal_profile": goal_profile,
             "questions": pending_questions,
             "analysis": toolkit.analysis(goal_profile),
             "dashboard": build_workspace_status(data_dir, provider=provider, model=model, base_url=base_url, api_key=api_key),
-        }
+        })
 
     goal_profile["goal_text"] = goal_text
     goal_profile["target_event"] = CoachChatSession._primary_event(goal_profile)
@@ -266,7 +273,7 @@ def generate_coach_plan(
         "weekly_plan": normalized_plan,
     }
     plan_state = toolkit.plan(saved_plan_payload)
-    return {
+    return repair_text_tree({
         "needs_clarification": False,
         "goal_profile": goal_profile,
         "coach_summary": saved_plan_payload["coach_summary"],
@@ -275,11 +282,11 @@ def generate_coach_plan(
         "plan_path": plan_state["path"],
         "analysis": analysis_context,
         "dashboard": build_workspace_status(data_dir, provider=provider, model=model, base_url=base_url, api_key=api_key),
-    }
+    })
 
 
 def import_garmin_export(*, source_path: str, data_dir: Path, run_label: str | None = None) -> dict[str, Any]:
-    return run_import_export(Path(source_path), data_dir, run_label=run_label or "pwa-import")
+    return repair_text_tree(run_import_export(Path(source_path), data_dir, run_label=run_label or "pwa-import"))
 
 
 def sync_garmin_connect(
@@ -305,7 +312,7 @@ def sync_garmin_connect(
             end_date=end_date,
         )
         result["debug_log_path"] = result.get("debug_log_path") or str(Path(__file__).resolve().parent.parent / "logs" / "garmin-sync-debug.jsonl")
-        return result
+        return repair_text_tree(result)
     except Exception as exc:
         log_sync_error(data_dir=data_dir, error=exc, context=context)
         raise RuntimeError(f"{exc} (voir logs/garmin-sync-debug.jsonl)") from exc
@@ -327,12 +334,12 @@ def recalculate_workspace(
         base_url=base_url,
         api_key=api_key,
     )
-    return {
+    return repair_text_tree({
         "ok": True,
-        "message": "Retraitement local terminÃ©.",
+        "message": "Retraitement local terminé.",
         "analytics": analytics_summary,
         "dashboard": dashboard,
-    }
+    })
 
 
 def run_pwa_server(*, web_root: Path, default_data_dir: Path, host: str = DEFAULT_WEB_HOST, port: int = DEFAULT_WEB_PORT) -> None:
@@ -365,7 +372,7 @@ def _build_static_response(path: Path) -> tuple[bytes, str]:
 def _build_reset_cache_page(next_url: str, version: str) -> str:
     escaped_next = json.dumps(next_url or "/")
     escaped_version = json.dumps(version)
-    return f"""<!doctype html>
+    return repair_mojibake_text(f"""<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
@@ -422,8 +429,8 @@ def _build_reset_cache_page(next_url: str, version: str) -> str:
     <main class="card">
       <h1>Coach Garmin: purge du cache local</h1>
       <p class="muted"><span class="spinner" aria-hidden="true"></span>Je nettoie les caches PWA et les service workers, puis je redirige vers la version {escaped_version}.</p>
-      <p class="muted">Si rien ne bouge dans l'UI aprÃ¨s Ã§a, on saura que le problÃ¨me ne vient plus du cache navigateur.</p>
-      <div class="mono" id="status">DÃ©marrage de la purgeâ€¦</div>
+      <p class="muted">Si rien ne bouge dans l'UI après ça, on saura que le problème ne vient plus du cache navigateur.</p>
+      <div class="mono" id="status">Démarrage de la purge…</div>
     </main>
     <script>
       const nextUrl = {escaped_next};
@@ -450,18 +457,18 @@ def _build_reset_cache_page(next_url: str, version: str) -> str:
       }}
       (async () => {{
         try {{
-          status.textContent = 'Purge du cache PWA en coursâ€¦';
+          status.textContent = 'Purge du cache PWA en cours…';
           await clearCaches();
-          status.textContent = 'Cache purgÃ©. Redirection vers l\\'appâ€¦';
+          status.textContent = 'Cache purgé. Redirection vers l\\'app…';
         }} catch (error) {{
-          status.textContent = `Purge terminÃ©e avec avertissement: ${{error.message}}`;
+          status.textContent = `Purge terminée avec avertissement: ${{error.message}}`;
         }} finally {{
           setTimeout(() => {{ location.replace(nextUrl); }}, 400);
         }}
       }})();
     </script>
   </body>
-</html>"""
+</html>""")
 
 
 def _load_latest_sync_run(data_dir: Path) -> dict[str, Any] | None:
@@ -471,7 +478,7 @@ def _load_latest_sync_run(data_dir: Path) -> dict[str, Any] | None:
     manifests = sorted(runs_dir.glob("*.json"), key=lambda path: path.stat().st_mtime, reverse=True)
     for manifest_path in manifests:
         try:
-            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            payload = repair_text_tree(json.loads(manifest_path.read_text(encoding="utf-8")))
         except Exception:
             continue
         return {
@@ -494,7 +501,7 @@ def _boot_trace_path(data_dir: Path) -> Path:
 def _append_boot_trace(data_dir: Path, payload: dict[str, Any]) -> dict[str, Any]:
     trace_path = _boot_trace_path(data_dir)
     trace_path.parent.mkdir(parents=True, exist_ok=True)
-    event = {
+    event = repair_text_tree({
         "timestamp": payload.get("timestamp") or datetime.now(UTC).isoformat(),
         "stage": payload.get("stage") or payload.get("event") or "unknown",
         "event": payload.get("event") or payload.get("stage") or "unknown",
@@ -506,9 +513,9 @@ def _append_boot_trace(data_dir: Path, payload: dict[str, Any]) -> dict[str, Any
         "state": payload.get("state"),
         "url": payload.get("url"),
         "hash": payload.get("hash"),
-    }
+    })
     with trace_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=True) + "\n")
+        handle.write(json.dumps(event, ensure_ascii=False) + "\n")
     return event
 
 
@@ -522,7 +529,7 @@ def _read_boot_trace(data_dir: Path, limit: int = 50) -> list[dict[str, Any]]:
         if not line.strip():
             continue
         try:
-            payload = json.loads(line)
+            payload = repair_text_tree(json.loads(line))
         except Exception:
             continue
         if isinstance(payload, dict):
@@ -530,10 +537,11 @@ def _read_boot_trace(data_dir: Path, limit: int = 50) -> list[dict[str, Any]]:
     return events
 
 
-def _build_trend_series(data_dir: Path) -> dict[str, Any]:
+def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
     db_path = data_dir / "normalized" / "coach_garmin.duckdb"
     if not db_path.exists():
         return {
+            "window_days": days,
             "daily_volume": [],
             "daily_bike_volume": [],
             "daily_load_ratio": [],
@@ -554,6 +562,7 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
         latest_day = latest_day_row[0] if latest_day_row else None
         if latest_day is None:
             return {
+                "window_days": days,
                 "daily_volume": [],
                 "daily_bike_volume": [],
                 "daily_load_ratio": [],
@@ -569,7 +578,8 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
             }
 
         latest_date = _coerce_date(latest_day)
-        window_start = latest_date - timedelta(days=89)
+        window_days = max(int(days or 90), 1)
+        window_start = latest_date - timedelta(days=window_days - 1)
         volume_rows = con.execute(
             """
             SELECT activity_date,
@@ -590,7 +600,7 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
             WHERE metric_date >= ?
             ORDER BY metric_date
             """,
-            [(latest_date - timedelta(days=89)).isoformat()],
+            [window_start.isoformat()],
         ).fetchall()
         pace_rows = con.execute(
             """
@@ -722,6 +732,19 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
         daily_running_hr.append({"date": metric_date, "heart_rate": round(sum(value * weight for value, weight in samples) / total_weight, 1)})
     zone_distribution_all = _zone_distribution(pace_rows, lambda activity_type: True)
     zone_distribution_running = _zone_distribution(pace_rows, _is_running_type)
+    pace_hr_curve_input = [
+        {
+            "pace_min_per_km": _pace_min_per_km((row[2] or 0.0) / 60.0, (row[3] or 0.0) / 1000.0),
+            "heart_rate": float(row[4]) if row[4] is not None else None,
+            "cadence_spm": None,
+            "weight": max(float(row[2] or 0.0), 90.0),
+            "point_count": 1,
+        }
+        for row in running_rows
+        if (row[2] or 0.0) > 0 and (row[3] or 0.0) > 0 and row[4] is not None
+    ]
+    pace_hr_curve = _build_pace_hr_curve(pace_hr_curve_input)
+    pace_hr_curve_debug = _build_pace_hr_curve_diagnostics(pace_hr_curve_input, pace_hr_curve)
     pace_hr_sessions = [
         {
             "date": str(row[0]),
@@ -732,18 +755,8 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
         for row in reversed(summary_rows[:8])
         if (row[2] or 0.0) > 0 and (row[3] or 0.0) > 0
     ]
-    pace_hr_curve_debug = {
-        "input_points": len(running_rows),
-        "curve_points": len(pace_hr_sessions),
-        "min_points_required": 3,
-        "ready": len(pace_hr_sessions) >= 3,
-        "blocking_reasons": [] if len(pace_hr_sessions) >= 3 else [
-            "Pas assez de sÃ©ances running avec allure et FC exploitables",
-            "Il faut au moins 3 points stables pour construire la courbe",
-            "Les sÃ©ances sans distance, sans durÃ©e ou sans FC sont ignorÃ©es",
-        ],
-    }
-    return {
+    return repair_text_tree({
+        "window_days": days,
         "daily_volume": daily_volume,
         "daily_bike_volume": daily_bike_volume,
         "daily_load_ratio": daily_load_ratio,
@@ -753,10 +766,11 @@ def _build_trend_series(data_dir: Path) -> dict[str, Any]:
         "daily_running_pace": daily_running_pace,
         "daily_running_hr": daily_running_hr,
         "pace_hr_sessions": pace_hr_sessions,
+        "pace_hr_curve": pace_hr_curve,
         "pace_hr_curve_debug": pace_hr_curve_debug,
         "heart_rate_zone_share": zone_distribution_all,
         "heart_rate_zone_share_running": zone_distribution_running,
-    }
+    })
 
 
 def _build_handler(config: CoachPwaConfig):
@@ -776,7 +790,7 @@ def _build_handler(config: CoachPwaConfig):
                 pass
 
         def _send_json(self, payload: dict[str, Any], status: int = HTTPStatus.OK) -> None:
-            body = json.dumps(payload, indent=2, ensure_ascii=True).encode("utf-8")
+            body = json.dumps(repair_text_tree(payload), indent=2, ensure_ascii=False).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
@@ -787,7 +801,7 @@ def _build_handler(config: CoachPwaConfig):
             self.wfile.write(body)
 
         def _send_text(self, payload: str, content_type: str = "text/plain; charset=utf-8", status: int = HTTPStatus.OK) -> None:
-            body = payload.encode("utf-8")
+            body = repair_mojibake_text(payload).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
@@ -802,7 +816,7 @@ def _build_handler(config: CoachPwaConfig):
             raw = self.rfile.read(length) if length else b"{}"
             if not raw:
                 return {}
-            return json.loads(raw.decode("utf-8"))
+            return repair_text_tree(json.loads(raw.decode("utf-8")))
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
@@ -841,6 +855,10 @@ def _build_handler(config: CoachPwaConfig):
                 provider = params.get("provider", ["ollama"])[0]
                 model = params.get("model", [None])[0]
                 base_url = params.get("base_url", [None])[0]
+                try:
+                    trend_days = max(30, min(365, int(params.get("days", ["90"])[0] or 90)))
+                except (TypeError, ValueError):
+                    trend_days = 90
                 include_provider_probe = params.get("probe", ["0"])[0] in {"1", "true", "yes", "on"}
                 self._log_http("GET", parsed.path)
                 self._send_json(
@@ -850,6 +868,7 @@ def _build_handler(config: CoachPwaConfig):
                         model=model,
                         base_url=base_url,
                         include_provider_probe=include_provider_probe,
+                        trend_days=trend_days,
                     )
                 )
                 return
@@ -1027,3 +1046,4 @@ def _is_provider_issue(exc: Exception) -> bool:
             "temporarily unavailable",
         )
     )
+

@@ -28,10 +28,10 @@ The current CLI coach works, but it is not yet a product surface that a user can
 %% logics-kind: backlog
 %% logics-signature: backlog|local-first-pwa-coach-dashboard|req-008-local-first-pwa-coach-dashboard|coach-garmin-needs-a-first-browser-insta|ac1-a-user-can-install-the
 flowchart TD
-    Request[req_008_local_first_pwa_coach_dashboard] --> Problem[Installable PWA coach dashboard]
-    Problem --> Scope[Local chat storage provider dashboard]
-    Scope --> Acceptance[AC1: A user can install the app]
-    Acceptance --> Tasks[Implementation task]
+    Request[req_008_local_first_pwa_coach_dashboard] --> Problem[Coach Garmin needs a first browser-install]
+    Problem --> Scope[Local-first PWA coach dashboard]
+    Scope --> Acceptance[AC1: A user can install the]
+    Acceptance --> Tasks[task_009_local_first_pwa_coach_dashboard]
 ```
 
 # Acceptance criteria
@@ -82,3 +82,4 @@ flowchart TD
 - Derived from request `req_008_local_first_pwa_coach_dashboard`.
 - Source file: `logics/request/req_008_local_first_pwa_coach_dashboard.md`.
 - Keep this backlog item as one bounded delivery slice; if implementation grows, split sibling backlog items instead of widening this doc.
+- Derived from `logics/request/req_008_local_first_pwa_coach_dashboard.md`.

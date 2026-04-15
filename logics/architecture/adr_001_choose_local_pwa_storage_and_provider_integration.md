@@ -59,10 +59,7 @@ Keep provider selection behind a settings layer and fail cleanly if a key or loc
 Only after the PWA is stable should a desktop wrapper or Android wrapper be added.
 
 # References
-- [req_008_local_first_pwa_coach_dashboard](../request/req_008_local_first_pwa_coach_dashboard.md)
-- [item_009_local_first_pwa_coach_dashboard](../backlog/item_009_local_first_pwa_coach_dashboard.md)
-- [task_009_local_first_pwa_coach_dashboard](../tasks/task_009_local_first_pwa_coach_dashboard.md)
-
+- (none yet)
 # Follow-up work
 - Define the local workspace layout for app state, cached imports, and coaching outputs.
 - Add a provider health check path for Ollama, Gemini, and OpenAI.

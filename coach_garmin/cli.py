@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from coach_garmin.coach_chat import run_coach_chat
@@ -18,11 +19,13 @@ from coach_garmin.manual_import import run_import_export
 from coach_garmin.pwa_service import run_pwa_server
 from coach_garmin.storage import default_boot_trace_path, default_coverage_report_path, default_report_path
 from coach_garmin.sync_state import load_sync_summary
+from coach_garmin.text_encoding import repair_text_tree
 
 
 def _print_payload(payload: dict[str, object], fmt: str) -> None:
+    payload = repair_text_tree(payload)
     if fmt == "json":
-        print(json.dumps(payload, indent=2, ensure_ascii=True))
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
         return
     for key, value in payload.items():
         print(f"{key}: {value}")
@@ -69,7 +72,7 @@ def cmd_report_latest(args: argparse.Namespace) -> int:
     report_path = default_report_path(Path(args.data_dir))
     if not report_path.exists():
         raise SystemExit(f"No report found at {report_path}")
-    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    payload = repair_text_tree(json.loads(report_path.read_text(encoding="utf-8")))
     _print_payload(payload, args.format)
     return 0
 
@@ -111,13 +114,13 @@ def cmd_report_coverage(args: argparse.Namespace) -> int:
     report_path = default_coverage_report_path(Path(args.data_dir))
     if not report_path.exists():
         raise SystemExit(f"No coverage report found at {report_path}")
-    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    payload = repair_text_tree(json.loads(report_path.read_text(encoding="utf-8")))
     _print_payload(payload, args.format)
     return 0
 
 
 def cmd_report_sync_state(args: argparse.Namespace) -> int:
-    payload = load_sync_summary(Path(args.data_dir))
+    payload = repair_text_tree(load_sync_summary(Path(args.data_dir)))
     _print_payload(payload, args.format)
     return 0
 
@@ -131,13 +134,16 @@ def cmd_report_boot_trace(args: argparse.Namespace) -> int:
         for line in trace_path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
-            lines.append(json.loads(line))
+            lines.append(repair_text_tree(json.loads(line)))
         _print_payload({"path": str(trace_path), "events": lines}, args.format)
         return 0
     print(f"path: {trace_path}")
     for line in trace_path.read_text(encoding="utf-8").splitlines():
         if line.strip():
-            print(line)
+            if line.lstrip().startswith("{"):
+                print(json.dumps(repair_text_tree(json.loads(line)), ensure_ascii=False, sort_keys=True))
+            else:
+                print(line)
     return 0
 
 
@@ -312,6 +318,13 @@ def main(argv: list[str] | None = None) -> int:
     if not getattr(args, "func", None):
         parser.print_help()
         return 1
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     try:
         return int(args.func(args))
     except (RuntimeError, ValueError) as exc:

@@ -8,6 +8,7 @@ from typing import Any
 
 from coach_garmin.config import DEFAULT_STATE_DB_PATH
 from coach_garmin.storage import ensure_data_dirs
+from coach_garmin.text_encoding import repair_text_tree
 
 
 def default_state_db_path(data_dir: Path) -> Path:
@@ -86,7 +87,7 @@ def _ensure_schema(con: sqlite3.Connection) -> None:
 
 
 def _json(payload: Any) -> str:
-    return json.dumps(payload, sort_keys=True, ensure_ascii=True)
+    return json.dumps(repair_text_tree(payload), sort_keys=True, ensure_ascii=False)
 
 
 def lookup_artifact_index(data_dir: Path, dataset: str, content_hash: str) -> dict[str, Any] | None:
@@ -254,7 +255,7 @@ def load_sync_summary(data_dir: Path) -> dict[str, Any]:
             "latest_run": dict(latest_run) if latest_run else None,
         }
         if latest_run:
-            payload["latest_run"]["metadata"] = json.loads(latest_run["metadata_json"] or "{}")
-        return payload
+            payload["latest_run"]["metadata"] = repair_text_tree(json.loads(latest_run["metadata_json"] or "{}"))
+        return repair_text_tree(payload)
     finally:
         con.close()

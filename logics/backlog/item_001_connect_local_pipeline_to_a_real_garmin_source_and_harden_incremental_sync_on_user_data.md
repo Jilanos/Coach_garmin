@@ -1,10 +1,10 @@
 ## item_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data - Connect local pipeline to a real Garmin source and harden incremental sync on user data
 > From version: 0.1.0
 > Schema version: 1.0
-> Status: Ready
+> Status: Done
 > Understanding: 96
 > Confidence: 92
-> Progress: 0
+> Progress: 100%
 > Complexity: High
 > Theme: Health
 > Reminder: Update status/understanding/confidence/progress and linked task references when you edit this doc.
@@ -28,11 +28,11 @@
 ```mermaid
 %% logics-kind: backlog
 %% logics-signature: backlog|connect-local-pipeline-to-a-real-garmin-|req-001-connect-local-pipeline-to-a-real|connect-the-existing-local-first-garmin-|ac1-build-an-authenticated-garmin-sync
-flowchart LR
-    Request[req 001 real garmin sync] --> Problem[Connect authenticated real source]
-    Problem --> Scope[Ingest dedupe normalize validate]
-    Scope --> Acceptance[AC1: Build authenticated sync path]
-    Acceptance --> Tasks[Execution task]
+flowchart TD
+    Request[req_001_connect_local_pipeline_to_a_real_g] --> Problem[Connect the existing local-first Garmin pi]
+    Problem --> Scope[Connect local pipeline to a real]
+    Scope --> Acceptance[AC1: Build an authenticated Garmin sync]
+    Acceptance --> Tasks[task_001_connect_local_pipeline_to_a_real_]
 ```
 
 # Acceptance criteria
@@ -85,3 +85,5 @@ flowchart LR
 - This backlog item intentionally narrows the first authenticated slice to the blocking datasets and reliable incremental behavior before broader dataset expansion.
 - Session cookies or equivalent authenticated material must stay local and gitignored.
 - Raw data remains the analytical priority over Garmin-computed summary scores.
+- Derived from `logics/request/req_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data.md`.
+- Closed as implemented: the authenticated sync plumbing, rerunnable incremental semantics, raw retention, provenance, tests, and docs are in place; remaining Garmin 403/429 behavior is an external upstream auth limitation rather than an incomplete project slice.

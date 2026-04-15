@@ -24,7 +24,7 @@ flowchart TD
     Request[req_011_sidebar_led_pwa_workspace_for_impo] --> Problem[The project already has]
     Problem --> Scope[Sidebar-led PWA workspace for import dashb]
     Scope --> Acceptance[AC1: The app shows a left]
-    Acceptance --> Tasks[Execution task]
+    Acceptance --> Tasks[task_012_sidebar_led_pwa_workspace_for_imp]
 ```
 
 # Acceptance criteria
@@ -82,3 +82,4 @@ flowchart TD
 - Source file: `logics\request\req_011_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md`.
 - Keep this backlog item as one bounded delivery slice; create sibling backlog items for the remaining request coverage instead of widening this doc.
 - Request context seeded into this backlog item from `logics\request\req_011_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md`.
+- Derived from `logics/request/req_011_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md`.

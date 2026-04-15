@@ -29,6 +29,7 @@ from coach_garmin.contracts import ArtifactRecord, SyncManifest
 from coach_garmin.env import resolve_secret
 from coach_garmin.storage import ensure_data_dirs, new_run_id, now_utc, write_json, write_raw_payload
 from coach_garmin.sync_state import load_sync_summary, lookup_artifact_index, record_sync_run
+from coach_garmin.text_encoding import repair_text_tree
 
 
 SYNC_DEBUG_LOG_PATH = Path(__file__).resolve().parent.parent / "logs" / "garmin-sync-debug.jsonl"
@@ -123,7 +124,7 @@ def _date_strings(window: SyncDateRange) -> list[str]:
 
 
 def _hash_payload(payload: Any) -> str:
-    serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True).encode("utf-8")
+    serialized = json.dumps(repair_text_tree(payload), sort_keys=True, ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(serialized).hexdigest()
 
 
@@ -131,7 +132,7 @@ def _append_sync_debug_event(event: dict[str, Any]) -> None:
     SYNC_DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "timestamp": now_utc().isoformat(),
-        **event,
+        **repair_text_tree(event),
     }
     with SYNC_DEBUG_LOG_PATH.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True))
@@ -155,7 +156,7 @@ def describe_auth_environment(
         package_version = importlib.metadata.version("garminconnect")
     except Exception:
         package_version = None
-    return {
+    return repair_text_tree({
         "package": "garminconnect",
         "package_version": package_version,
         "tokenstore_path": str(tokenstore_path),
@@ -167,7 +168,7 @@ def describe_auth_environment(
         "password_configured": bool(password),
         "env_file": str(env_file),
         "login_strategy_hint": "mobile SSO / portal fallback via python-garminconnect",
-    }
+    })
 
 
 def log_auth_test_event(*, data_dir: Path, event: dict[str, Any]) -> None:
@@ -436,12 +437,12 @@ def initialize_garmin_auth(
         password_env=password_env,
         client_factory=client_factory,
     )
-    return {
+    return repair_text_tree({
         "source_kind": "garmin-auth-init",
         "tokenstore_path": str(tokenstore_path),
         "used_existing_tokenstore": used_existing_tokenstore,
         "credentials_configured": bool(email and password),
-    }
+    })
 
 
 def test_garmin_auth(
@@ -466,25 +467,25 @@ def test_garmin_auth(
             email_env=email_env,
             password_env=password_env,
         )
-        event = {"status": "success", "result": payload, "auth_environment": auth_environment}
+        event = repair_text_tree({"status": "success", "result": payload, "auth_environment": auth_environment})
         log_auth_test_event(data_dir=data_dir, event=event)
-        return {"ok": True, "auth_environment": auth_environment, "result": payload, "debug_log_path": str(SYNC_DEBUG_LOG_PATH)}
+        return repair_text_tree({"ok": True, "auth_environment": auth_environment, "result": payload, "debug_log_path": str(SYNC_DEBUG_LOG_PATH)})
     except Exception as exc:
-        event = {
+        event = repair_text_tree({
             "status": "error",
             "error_type": exc.__class__.__name__,
             "error_message": str(exc),
             "traceback": traceback.format_exc(),
             "auth_environment": auth_environment,
-        }
+        })
         log_auth_test_event(data_dir=data_dir, event=event)
-        return {
+        return repair_text_tree({
             "ok": False,
             "auth_environment": auth_environment,
             "error": str(exc),
             "error_type": exc.__class__.__name__,
             "debug_log_path": str(SYNC_DEBUG_LOG_PATH),
-        }
+        })
 
 
 def run_authenticated_sync(
@@ -649,7 +650,7 @@ def run_authenticated_sync(
         }
     )
 
-    return {
+    return repair_text_tree({
         "run_id": run_id,
         "manifest_path": str(manifest_path),
         "debug_log_path": str(SYNC_DEBUG_LOG_PATH),
@@ -668,7 +669,7 @@ def run_authenticated_sync(
         "sync_state": state_summary_after,
         "coverage_report_path": analytics_summary.get("coverage_report_path"),
         "analytics": analytics_summary,
-    }
+    })
 
 
 def log_sync_error(*, data_dir: Path, error: Exception, context: dict[str, Any]) -> None:

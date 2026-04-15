@@ -28,12 +28,12 @@
 
 ```mermaid
 %% logics-kind: backlog
-%% logics-signature: backlog|patch-manual-import-to-support-full-garm|req-002-patch-manual-import-to|extend-the-manual-import-pipeline-so|ac1-the-request-defines-that-the
-flowchart LR
-    Request[req 002 patch manual import to] --> Problem[Extend the manual import pipeline so]
+%% logics-signature: backlog|patch-manual-import-to-support-full-garm|req-002-patch-manual-import-to-support-f|extend-the-manual-import-pipeline-so|ac1-the-request-defines-that-the
+flowchart TD
+    Request[req_002_patch_manual_import_to_support_ful] --> Problem[Extend the manual import pipeline so]
     Problem --> Scope[Patch manual import to support full]
     Scope --> Acceptance[AC1: The request defines that the]
-    Acceptance --> Tasks[Execution task]
+    Acceptance --> Tasks[task_002_patch_manual_import_to_support_fu]
 ```
 
 # Acceptance criteria
@@ -88,3 +88,4 @@ flowchart LR
 - Keep this backlog item as one bounded delivery slice; create sibling backlog items for the remaining request coverage instead of widening this doc.
 - Request context seeded into this backlog item from `logics\request\req_002_patch_manual_import_to_support_full_garmin_connect_export_shapes.md`.
 - The preferred implementation sequence is two-phase: detection and mapping first, then parsing or normalization adjustments only where real payloads require them.
+- Derived from `logics/request/req_002_patch_manual_import_to_support_full_garmin_connect_export_shapes.md`.

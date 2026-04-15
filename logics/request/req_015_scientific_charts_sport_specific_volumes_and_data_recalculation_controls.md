@@ -28,12 +28,9 @@
 %% logics-kind: request
 %% logics-signature: request|scientific-charts-sport-specific-volumes|make-the-dashboard-scientifically-readab|ac1-the-running-dashboard-excludes-bike
 flowchart TD
-    Raw[Mixed sport data] --> Filter[Separate sport specific metrics]
-    Filter --> Charts[Scientific charts with axes and hover]
-    Filter --> Recalc[Reprocess derived data]
-    Charts --> Dashboard[Trustworthy dashboard]
-    Recalc --> Dashboard
-    Dashboard --> Coach[Clear coaching signals]
+    Trigger[Scientific charts sport-specific volumes a] --> Need[Make the dashboard scientifically readable]
+    Need --> Outcome[AC1: The running dashboard excludes bike]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Acceptance criteria
@@ -61,6 +58,7 @@ flowchart TD
 - Skip when: Skip when the work targets Garmin auth, shell navigation, or unrelated UI surfaces.
 # Backlog
 - `item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`
+- `logics/backlog/item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md`
 # Open questions
 - Should the bike volume graph live in the same dashboard page or in a separate sport subsection?
 - Should the recalculation button rebuild only analytics, or also re-import and normalize the latest local source files?

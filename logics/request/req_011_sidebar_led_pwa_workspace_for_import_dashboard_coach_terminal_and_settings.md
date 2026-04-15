@@ -55,16 +55,9 @@ The intended layout is:
 %% logics-kind: request
 %% logics-signature: request|sidebar-led-pwa-workspace-for-import-das|describe-the-need|ac1-the-app-shows-a-left
 flowchart TD
-    Nav[Left sidebar navigation] --> Import[Import section]
-    Nav --> Dash[Dashboard section]
-    Nav --> Coach[Coach section]
-    Nav --> Term[Terminal section]
-    Nav --> Set[Settings section]
-    Import --> Main[Shared main workspace]
-    Dash --> Main
-    Coach --> Main
-    Term --> Main
-    Set --> Main
+    Trigger[Sidebar-led PWA workspace for import dashb] --> Need[Workspace-led PWA UX]
+    Need --> Outcome[AC1: The app shows a left]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Scope
@@ -151,3 +144,5 @@ flowchart TD
 
 # Backlog
 - `item_012_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings`
+
+- `logics/backlog/item_012_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md`

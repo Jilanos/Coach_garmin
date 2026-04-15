@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and dependencies/references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_002_patch_manual_import_to_support_full_garmin_connect_export_shapes.md`.
 - Derived from backlog item `item_002_patch_manual_import_to_support_full_garmin_connect_export_shapes`.
 - Source file: `logics\backlog\item_002_patch_manual_import_to_support_full_garmin_connect_export_shapes.md`.
 - Related request(s): `req_002_patch_manual_import_to_support_full_garmin_connect_export_shapes`.
@@ -23,13 +24,21 @@
 
 ```mermaid
 %% logics-kind: task
-%% logics-signature: task|patch-manual-import-to-support-full-garm|item-002-patch-manual-import-to|1-confirm-scope-dependencies-and-linked|run-the-relevant-automated-tests-for
-flowchart LR
-    Backlog[item 002 patch manual import to] --> Step1[1. Map Garmin-native files to datasets]
-    Step1 --> Step2[2. Patch parsing and normalization as needed]
-    Step2 --> Step3[3. Validate real import on local export]
-    Step3 --> Validation[Run targeted tests and smoke checks]
-    Validation --> Report[Done report]
+%% logics-signature: task|patch-manual-import-to-support-full-garm|item-002-patch-manual-import-to-support-|1-inspect-the-real-garmin-export|venv-scripts-python-m-unittest-discover
+stateDiagram-v2
+    state "item_002_patch_manual_import_to_support_fu" as Backlog
+    state "1. Inspect the real Garmin export" as Scope
+    state "2. Patch dataset detection in coach_garmin" as Build
+    state "3. Decide and implement chunked-file handl" as Verify
+    state "venv Scripts python -m unittest discover" as Validation
+    state "Done report" as Report
+    [*] --> Backlog
+    Backlog --> Scope
+    Scope --> Build
+    Build --> Verify
+    Verify --> Validation
+    Validation --> Report
+    Report --> [*]
 ```
 
 # Plan
@@ -42,7 +51,7 @@ flowchart LR
 - [x] 7. Run a real manual import against `C:\Users\Pmondou\Downloads\garmin-export`, capture which datasets import successfully, and record which files remain unsupported after the first slice.
 - [x] 8. Update README or relevant repo docs plus linked Logics docs with the supported real export shapes, canonical source choices, chunk-handling behavior, and validation evidence.
 - [x] CHECKPOINT: leave the current wave commit-ready and update the linked Logics docs before continuing.
-- [ ] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
+- [x] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
 - [x] GATE: do not close a wave or step until the relevant automated tests and quality checks have been run successfully.
 - [x] FINAL: Update related Logics docs
 
@@ -105,7 +114,7 @@ flowchart LR
 - [x] Validation commands executed and results captured.
 - [x] No wave or step was closed before the relevant automated tests and quality checks passed.
 - [x] Linked request/backlog/task docs updated during completed waves and at closure.
-- [ ] Each completed wave left a commit-ready checkpoint or an explicit exception is documented.
+- [x] Each completed wave left a commit-ready checkpoint or an explicit exception is documented.
 - [x] Status is `Done` and progress is `100%`.
 
 # Report
@@ -138,3 +147,5 @@ flowchart LR
 - real export import succeeds end-to-end on the local archive
 - the report is generated successfully with `latest_day=2026-04-07`
 - Commit-ready checkpoint note: repository is left in a coherent state, but no `flow assist commit-all` checkpoint was created in this run.
+
+# Notes

@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and linked request/backlog references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md`.
 - Derived from backlog item `item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`.
 - Source file: `logics\backlog\item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md`.
 - Related request(s): `req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`.
@@ -88,11 +89,13 @@ stateDiagram-v2
 - Confirm the completed wave leaves the repository in a commit-ready state.
 
 # Definition of Done (DoD)
-- [ ] Scope implemented and acceptance criteria covered.
-- [ ] Validation commands executed and results captured.
-- [ ] No wave or step was closed before the relevant automated tests and quality checks passed.
-- [ ] Linked request/backlog/task docs updated during completed waves and at closure.
-- [ ] Each completed wave left a commit-ready checkpoint or an explicit exception is documented.
-- [ ] Status is `Done` and progress is `100%`.
+- [x] Scope implemented and acceptance criteria covered.
+- [x] Validation commands executed and results captured.
+- [x] No wave or step was closed before the relevant automated tests and quality checks passed.
+- [x] Linked request/backlog/task docs updated during completed waves and at closure.
+- [x] Each completed wave left a commit-ready checkpoint or an explicit exception is documented.
+- [x] Status is `Done` and progress is `100%`.
 
 # Report
+
+# Notes

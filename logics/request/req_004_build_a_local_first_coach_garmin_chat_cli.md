@@ -1,7 +1,7 @@
 ## req_004_build_a_local_first_coach_garmin_chat_cli - Build a local-first coach-garmin chat CLI
 > From version: 0.1.0
 > Schema version: 1.0
-> Status: Ready
+> Status: Done
 > Understanding: 95
 > Confidence: 92
 > Complexity: High
@@ -106,3 +106,4 @@ flowchart TD
 
 # Backlog
 - `item_004_build_a_local_first_coach_garmin_chat_cli`
+- `logics/backlog/item_004_build_a_local_first_coach_garmin_chat_cli.md`

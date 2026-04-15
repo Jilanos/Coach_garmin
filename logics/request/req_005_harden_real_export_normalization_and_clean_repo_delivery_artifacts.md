@@ -28,10 +28,9 @@
 %% logics-kind: request
 %% logics-signature: request|harden-real-export-normalization-and-cle|correct-the-real-data-normalization-issu|ac1-real-activity-normalization-aberrati
 flowchart TD
-    Import[Real export import] --> Detect[Detect activity aberrations]
-    Detect --> Fix[Fix normalization and guardrails]
-    Fix --> Clean[Clean repo and logics artifacts]
-    Clean --> Validate[Validate coach flow on real data]
+    Trigger[Harden real export normalization and clean] --> Need[Correct the real-data normalization issues]
+    Need --> Outcome[AC1: Real activity normalization aberratio]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Scope

@@ -16,6 +16,7 @@ from coach_garmin.storage import (
     ensure_data_dirs,
     write_json,
 )
+from coach_garmin.text_encoding import repair_text_tree
 
 
 STANDARD_BENCHMARKS: tuple[tuple[str, float, float], ...] = (
@@ -36,10 +37,10 @@ class LocalCoachToolkit:
         coverage_path = default_coverage_report_path(self.data_dir)
         report: dict[str, Any] = {}
         if report_path.exists():
-            report = json.loads(report_path.read_text(encoding="utf-8"))
+            report = repair_text_tree(json.loads(report_path.read_text(encoding="utf-8")))
         coverage: dict[str, Any] = {}
         if coverage_path.exists():
-            coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
+            coverage = repair_text_tree(json.loads(coverage_path.read_text(encoding="utf-8")))
 
         payload: dict[str, Any] = {
             "report_path": str(report_path),
@@ -54,7 +55,7 @@ class LocalCoachToolkit:
         db_path = default_db_path(self.data_dir)
         if not db_path.exists():
             payload["db_available"] = False
-            return payload
+            return repair_text_tree(payload)
 
         payload["db_available"] = True
         con = duckdb.connect(str(db_path), read_only=True)
@@ -121,33 +122,33 @@ class LocalCoachToolkit:
                     }
         finally:
             con.close()
-        return payload
+        return repair_text_tree(payload)
 
     def goals(self, goal_profile: dict[str, Any] | None = None) -> dict[str, Any]:
         ensure_data_dirs(self.data_dir)
         goal_path = self._goal_profile_path()
         if goal_profile is None:
             if not goal_path.exists():
-                return {"path": str(goal_path), "goal_profile": {}}
-            return {
+                return repair_text_tree({"path": str(goal_path), "goal_profile": {}})
+            return repair_text_tree({
                 "path": str(goal_path),
-                "goal_profile": json.loads(goal_path.read_text(encoding="utf-8")),
-            }
+                "goal_profile": repair_text_tree(json.loads(goal_path.read_text(encoding="utf-8"))),
+            })
 
         write_json(goal_path, goal_profile)
-        return {"path": str(goal_path), "goal_profile": goal_profile}
+        return repair_text_tree({"path": str(goal_path), "goal_profile": goal_profile})
 
     def history(self, days: int = 21) -> dict[str, Any]:
         db_path = default_db_path(self.data_dir)
         if not db_path.exists():
-            return {
+            return repair_text_tree({
                 "window_days": days,
                 "available": False,
                 "recent_activity_count": 0,
                 "recent_bike_activity_count": 0,
                 "recent_activities": [],
                 "coverage": self._load_coverage_report(),
-            }
+            })
 
         con = duckdb.connect(str(db_path), read_only=True)
         try:
@@ -156,14 +157,14 @@ class LocalCoachToolkit:
             ).fetchone()
             latest_day = latest_day_row[0]
             if latest_day is None:
-                return {
+                return repair_text_tree({
                     "window_days": days,
                     "available": False,
                     "recent_activity_count": 0,
                     "recent_bike_activity_count": 0,
                     "recent_activities": [],
                     "coverage": self._load_coverage_report(),
-                }
+                })
 
             latest_date = self._coerce_date(latest_day)
             window_start = latest_date - timedelta(days=days - 1)
@@ -203,7 +204,7 @@ class LocalCoachToolkit:
         finally:
             con.close()
 
-        return {
+        return repair_text_tree({
             "window_days": days,
             "available": True,
             "latest_activity_day": latest_date.isoformat(),
@@ -219,12 +220,12 @@ class LocalCoachToolkit:
             "long_run_km": round(long_run_km, 2),
             "recent_activities": recent_activities,
             "coverage": self._load_coverage_report(),
-        }
+        })
 
     def analysis(self, goal_profile: dict[str, Any]) -> dict[str, Any]:
         db_path = default_db_path(self.data_dir)
         if not db_path.exists():
-            return {
+            return repair_text_tree({
                 "available": False,
                 "principal_objective": goal_profile.get("principal_objective")
                 or goal_profile.get("target_event"),
@@ -235,7 +236,7 @@ class LocalCoachToolkit:
                 "training_phase": "insufficient-data",
                 "coverage": self._load_coverage_report(),
                 "analysis_summary": "Pas assez de donnees locales pour produire une analyse historique fiable.",
-            }
+            })
 
         con = duckdb.connect(str(db_path), read_only=True)
         try:
@@ -244,18 +245,18 @@ class LocalCoachToolkit:
             ).fetchone()
             latest_day = latest_day_row[0]
             if latest_day is None:
-                return {
+                return repair_text_tree({
                     "available": False,
                     "principal_objective": goal_profile.get("principal_objective")
                     or goal_profile.get("target_event"),
                     "windows": {},
                     "benchmarks": [],
-                "recommended_benchmark": None,
-                "inferred_paces": {},
-                "training_phase": "insufficient-data",
-                "coverage": self._load_coverage_report(),
-                "analysis_summary": "Aucune activite n'est disponible pour analyser l'historique.",
-            }
+                    "recommended_benchmark": None,
+                    "inferred_paces": {},
+                    "training_phase": "insufficient-data",
+                    "coverage": self._load_coverage_report(),
+                    "analysis_summary": "Aucune activite n'est disponible pour analyser l'historique.",
+                })
 
             latest_date = self._coerce_date(latest_day)
             windows = {
@@ -282,7 +283,7 @@ class LocalCoachToolkit:
         finally:
             con.close()
 
-        return {
+        return repair_text_tree({
             "available": True,
             "latest_activity_day": latest_date.isoformat(),
             "principal_objective": principal_objective,
@@ -294,7 +295,7 @@ class LocalCoachToolkit:
             "signal_highlights": signal_highlights,
             "coverage": self._load_coverage_report(),
             "analysis_summary": analysis_summary,
-        }
+        })
 
     def plan(self, plan_payload: dict[str, Any]) -> dict[str, Any]:
         ensure_data_dirs(self.data_dir)
@@ -312,7 +313,7 @@ class LocalCoachToolkit:
         coverage_path = default_coverage_report_path(self.data_dir)
         if not coverage_path.exists():
             return {}
-        return json.loads(coverage_path.read_text(encoding="utf-8"))
+        return repair_text_tree(json.loads(coverage_path.read_text(encoding="utf-8")))
 
     def _summarize_running_window(self, con: duckdb.DuckDBPyConnection, latest_date: date, days: int) -> dict[str, Any]:
         window_start = latest_date - timedelta(days=days - 1)

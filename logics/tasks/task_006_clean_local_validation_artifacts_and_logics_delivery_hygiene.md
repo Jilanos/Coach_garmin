@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and dependencies/references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_006_clean_local_validation_artifacts_and_logics_delivery_hygiene.md`.
 - Derived from backlog item `item_006_clean_local_validation_artifacts_and_logics_delivery_hygiene`.
 - Source file: `logics\backlog\item_006_clean_local_validation_artifacts_and_logics_delivery_hygiene.md`.
 - Related request(s): `req_005_harden_real_export_normalization_and_clean_repo_delivery_artifacts`.
@@ -20,13 +21,20 @@
 ```mermaid
 %% logics-kind: task
 %% logics-signature: task|clean-local-validation-artifacts-and-log|item-006-clean-local-validation-artifact|1-audit-repo-hygiene-around-the|git-status-short
-flowchart LR
-    Backlog[item 006 cleanup hygiene] --> Step1[1 audit repo and logics hygiene]
-    Step1 --> Step2[2 decide what to retain ignore or clarify]
-    Step2 --> Step3[3 apply bounded cleanup]
-    Step3 --> Step4[4 protect local-only artifacts]
-    Step4 --> Validation[Run lint and repo safety checks]
-    Validation --> Report[Done report]
+stateDiagram-v2
+    state "item_006_clean_local_validation_artifacts_" as Backlog
+    state "1. Audit repo hygiene around the" as Scope
+    state "2. Audit Logics hygiene for stale" as Build
+    state "3. Decide what local validation artifacts" as Verify
+    state "git status --short" as Validation
+    state "Done report" as Report
+    [*] --> Backlog
+    Backlog --> Scope
+    Scope --> Build
+    Build --> Verify
+    Verify --> Validation
+    Validation --> Report
+    Report --> [*]
 ```
 
 # Plan
@@ -38,7 +46,7 @@ flowchart LR
 - [x] 6. Validate that the resulting repo and Logics state is coherent and that useful retained evidence remains understandable.
 - [x] 7. Record the retained-versus-cleaned decisions and any local-only handling rules in the task report.
 - [x] CHECKPOINT: leave the current wave commit-ready and update the linked Logics docs before continuing.
-- [ ] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
+- [x] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
 - [x] GATE: do not close a wave or step until the relevant automated tests and quality checks have been run successfully.
 - [x] FINAL: Update related Logics docs
 
@@ -115,3 +123,5 @@ flowchart LR
 - removed: `data/validation_real_export` as disposable derived validation output
 - clarified: local-only handling in repo docs and ignore rules
 - Commit checkpoint note: cleanup is documented and the repo is push-safer with respect to local-only data, but no commit was created in this task execution window.
+
+# Notes

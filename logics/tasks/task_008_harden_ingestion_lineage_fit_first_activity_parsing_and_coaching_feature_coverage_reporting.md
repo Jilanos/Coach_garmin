@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and linked request/backlog references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting.md`.
 - Derived from backlog item `item_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting`.
 - Source file: `logics\backlog\item_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting.md`.
 - Related request(s): `req_007_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting`.
@@ -104,3 +105,5 @@ stateDiagram-v2
 - Finished on 2026-04-09.
 - Linked backlog item(s): `item_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting`
 - Related request(s): `req_007_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting`
+
+# Notes

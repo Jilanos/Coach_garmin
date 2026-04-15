@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from coach_garmin.coach_llm import CoachLLMConfig, build_coach_client
 from coach_garmin.coach_tools import LocalCoachToolkit
+from coach_garmin.text_encoding import repair_text_tree
 
 
 InputFunc = Callable[[str], str]
@@ -81,14 +82,14 @@ class CoachChatSession:
         saved_plan = self.toolkit.plan(saved_plan_payload)
 
         self._render_summary(saved_plan_payload)
-        return {
+        return repair_text_tree({
             "goal_profile_path": goal_state["path"],
             "plan_path": saved_plan["path"],
             "questions_asked": questions_asked,
             "goal_profile": goal_profile,
             "signals_used": saved_plan_payload["signals_used"],
             "weekly_plan": saved_plan_payload["weekly_plan"],
-        }
+        })
 
     @staticmethod
     def _build_prompt_bundle(
@@ -196,7 +197,7 @@ class CoachChatSession:
         if payload.get("coach_summary"):
             self.output_func("")
             self.output_func("Analyse coach")
-            self.output_func(str(payload["coach_summary"]))
+            self.output_func(str(repair_text_tree(payload["coach_summary"])))
         signals = payload.get("signals_used") or []
         if signals:
             self.output_func("")
@@ -207,10 +208,10 @@ class CoachChatSession:
         self.output_func("Plan hebdomadaire")
         for session in payload["weekly_plan"]:
             day = session.get("day", "?")
-            title = session.get("session_title", "Seance")
+            title = repair_text_tree(session.get("session_title", "Seance"))
             duration = session.get("duration_minutes", "?")
-            intensity = session.get("intensity", "?")
-            objective = session.get("objective", "")
+            intensity = repair_text_tree(session.get("intensity", "?"))
+            objective = repair_text_tree(session.get("objective", ""))
             self.output_func(f"- {day}: {title} | {duration} min | {intensity}")
             if objective:
                 self.output_func(f"  {objective}")

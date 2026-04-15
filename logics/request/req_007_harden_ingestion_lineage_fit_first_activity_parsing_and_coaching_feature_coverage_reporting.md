@@ -25,11 +25,9 @@
 %% logics-kind: request
 %% logics-signature: request|harden-ingestion-lineage-fit-first-activ|make-the-garmin-ingestion-pipeline-more|ac1-imported-artifacts-retain-explicit-p
 flowchart TD
-    Source[Garmin export and FIT inputs] --> Parse[FIT first activity parsing]
-    Parse --> Normalize[Normalize and deduplicate]
-    Normalize --> Coverage[Build coverage report]
-    Coverage --> Coach[Coach uses trusted features]
-    Normalize --> Lineage[Persist provenance and lineage]
+    Trigger[Harden ingestion lineage FIT-first activit] --> Need[Make the Garmin ingestion pipeline more]
+    Need --> Outcome[AC1: Imported artifacts retain explicit pr]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Scope
@@ -88,3 +86,4 @@ flowchart TD
 
 # Backlog
 - `item_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting`
+- `logics/backlog/item_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting.md`

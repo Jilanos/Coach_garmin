@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and linked request/backlog references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_010_pwa_coach_ux_polish_and_dashboard_enrichment.md`.
 - Derived from backlog item `item_010_pwa_coach_ux_polish_and_dashboard_enrichment`.
 - Source file: `logics\backlog\item_010_pwa_coach_ux_polish_and_dashboard_enrichment.md`.
 - Related request(s): `req_009_pwa_coach_ux_polish_and_dashboard_enrichment`.
@@ -103,3 +104,5 @@ stateDiagram-v2
 - Finished on 2026-04-12.
 - Linked backlog item(s): `item_010_pwa_coach_ux_polish_and_dashboard_enrichment`
 - Related request(s): `req_009_pwa_coach_ux_polish_and_dashboard_enrichment`
+
+# Notes

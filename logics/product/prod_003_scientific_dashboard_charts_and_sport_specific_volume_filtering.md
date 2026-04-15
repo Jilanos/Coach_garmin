@@ -1,9 +1,9 @@
 ## prod_003_scientific_dashboard_charts_and_sport_specific_volume_filtering - Scientific dashboard charts and sport-specific volume filtering
 > Date: 2026-04-14
 > Status: Active
-> Related request: `req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`
+> Related request: `req_014_scientific_dashboard_charts_and_sport_specific_volume_filtering`
 > Related backlog: `item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`
-> Related task: (none yet)
+> Related task: [task_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls](../tasks/task_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md)
 > Related architecture: `adr_004_scientific_charts_for_sport_specific_volumes_and_data_recalculation`
 > Reminder: Update status, linked refs, scope, decisions, success signals, and open questions when you edit this doc.
 
@@ -54,9 +54,8 @@ That causes mistrust in the numbers and makes it harder to know whether the user
 - A stale dashboard can be refreshed without blocking the app.
 
 # References
-- `req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`
-- `item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`
-- `adr_004_scientific_charts_for_sport_specific_volumes_and_data_recalculation`
-
+- `logics/request/req_014_scientific_dashboard_charts_and_sport_specific_volume_filtering.md`
+- `logics/backlog/item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md`
+- `logics/architecture/adr_004_scientific_charts_for_sport_specific_volumes_and_data_recalculation.md`
 # Open questions
 - Should the bike graph live next to the running dashboard or inside a distinct sport subsection?

@@ -57,10 +57,9 @@ That made it harder to answer a simple question quickly: what does my recent run
 - The dashboard supports better coaching decisions from recent data rather than displaying more numbers for their own sake.
 
 # References
-- `req_013_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics`
-- `item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics`
-- `task_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics`
-- `Panorama technique pour coach_garmin.pdf`
-
+- `logics/request/req_013_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md`
+- `logics/backlog/item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md`
+- `logics/tasks/task_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md`
+- `logics/architecture/adr_003_choose_monotone_pace_hr_curve_and_cadence_first_dashboard_metrics.md`
 # Open questions
 - Should HRV stay visible in a compact recovery card, or remain a debug/context-only signal for now?

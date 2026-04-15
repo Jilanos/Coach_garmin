@@ -35,7 +35,7 @@ flowchart TD
     Request[req_013_refine_dashboard_metrics_and_data_] --> Problem[Simplify the dashboard by removing low-val]
     Problem --> Scope[Refine dashboard metrics and data processi]
     Scope --> Acceptance[AC1: The main dashboard no longer]
-    Acceptance --> Tasks[Execution task]
+    Acceptance --> Tasks[task_014_refine_dashboard_metrics_and_data]
 ```
 
 # Acceptance criteria
@@ -87,3 +87,4 @@ flowchart TD
 - Keep this backlog item as one bounded delivery slice; create sibling backlog items for the remaining request coverage instead of widening this doc.
 - Request context seeded into this backlog item from `logics\request\req_013_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md`.
 - Implemented in the local PWA dashboard and analytics pipeline with monotone pace/HR, cadence trend, and reference bands for load and sleep.
+- Derived from `logics/request/req_013_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md`.

@@ -3,7 +3,7 @@
 > Status: Active
 > Related request: [req_012_clarify_import_workflow_accent_handling_and_refresh_actions](../request/req_012_clarify_import_workflow_accent_handling_and_refresh_actions.md)
 > Related backlog: [item_013_clarify_import_workflow_accent_handling_and_refresh_actions](../backlog/item_013_clarify_import_workflow_accent_handling_and_refresh_actions.md)
-> Related task: (none yet)
+> Related task: [task_013_clarify_import_workflow_accent_handling_and_refresh_actions](../tasks/task_013_clarify_import_workflow_accent_handling_and_refresh_actions.md)
 > Related architecture: [adr_002_place_workspace_in_settings_and_add_non_blocking_garmin_sync](../architecture/adr_002_place_workspace_in_settings_and_add_non_blocking_garmin_sync.md)
 > Reminder: Update status, linked refs, scope, decisions, success signals, and open questions when you edit this doc.
 
@@ -64,10 +64,7 @@ The product needs a clearer first impression so the import workflow feels trustw
 - Garmin Connect sync failures are reported clearly without breaking the product flow.
 
 # References
-- [req_012_clarify_import_workflow_accent_handling_and_refresh_actions](../request/req_012_clarify_import_workflow_accent_handling_and_refresh_actions.md)
-- [item_013_clarify_import_workflow_accent_handling_and_refresh_actions](../backlog/item_013_clarify_import_workflow_accent_handling_and_refresh_actions.md)
-- [adr_002_place_workspace_in_settings_and_add_non_blocking_garmin_sync](../architecture/adr_002_place_workspace_in_settings_and_add_non_blocking_garmin_sync.md)
-
+- (none yet)
 # Open questions
 - Should the import page keep a separate sync button or fold sync into a grouped action row?
 - Should the freshness summary prioritize last activity age or last sync age?

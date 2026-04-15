@@ -27,12 +27,11 @@
 ```mermaid
 %% logics-kind: backlog
 %% logics-signature: backlog|correct-real-garmin-activity-normalizati|req-005-harden-real-export-normalization|real-garmin-export-activity-data-current|ac1-real-activity-normalization-aberrati
-flowchart LR
-    Request[req 005 real export hardening] --> Replay[Replay the anomaly on local export]
-    Replay --> Normalize[Correct activity normalization]
-    Normalize --> Guardrails[Add plausibility guardrails]
-    Guardrails --> Coach[Revalidate local coach output]
-    Coach --> Task[Execution task]
+flowchart TD
+    Request[req_005_harden_real_export_normalization_a] --> Problem[Real Garmin export activity data currently]
+    Problem --> Scope[Correct real Garmin activity normalization]
+    Scope --> Acceptance[AC1: Real activity normalization aberratio]
+    Acceptance --> Tasks[task_005_correct_real_garmin_activity_norm]
 ```
 
 # Acceptance criteria

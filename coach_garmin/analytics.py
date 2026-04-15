@@ -18,6 +18,7 @@ from coach_garmin.storage import (
     write_json,
 )
 from coach_garmin.coverage import build_feature_coverage_report
+from coach_garmin.text_encoding import repair_text_tree
 
 
 @dataclass(slots=True)
@@ -227,7 +228,7 @@ def _safe_json_loads(value: str | None) -> dict[str, Any]:
     if not value:
         return {}
     try:
-        parsed = json.loads(value)
+        parsed = repair_text_tree(json.loads(value))
     except json.JSONDecodeError:
         return {}
     return parsed if isinstance(parsed, dict) else {}
@@ -1199,7 +1200,7 @@ def _load_manifests(data_dir: Path) -> list[dict[str, Any]]:
     if not runs_dir.exists():
         return []
     return [
-        json.loads(path.read_text(encoding="utf-8"))
+        repair_text_tree(json.loads(path.read_text(encoding="utf-8")))
         for path in sorted(runs_dir.glob("*.json"))
     ]
 

@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and dependencies/references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md`.
 - Derived from backlog item `item_003_extend_garmin_export_coverage_to_the_full_initial_data_surface`.
 - Source file: `logics\backlog\item_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md`.
 - Related request(s): `req_003_extend_garmin_export_coverage_to_the_full_initial_data_surface`.
@@ -19,13 +20,21 @@
 
 ```mermaid
 %% logics-kind: task
-%% logics-signature: task|extend-garmin-export-coverage-to-the-ful|item-003-extend-garmin-export-coverage|1-confirm-scope-dependencies-and-linked|run-the-relevant-automated-tests-for
-flowchart LR
-    Backlog[item 003 extend garmin export coverage] --> Step1[1. Confirm scope dependencies and linked]
-    Step1 --> Step2[2. Implement the next coherent delivery]
-    Step2 --> Step3[3. Checkpoint the wave in a]
-    Step3 --> Validation[Run the relevant automated tests for]
-    Validation --> Report[Done report]
+%% logics-signature: task|extend-garmin-export-coverage-to-the-ful|item-003-extend-garmin-export-coverage-t|1-confirm-scope-dependencies-and-linked|venv-scripts-python-m-unittest-discover
+stateDiagram-v2
+    state "item_003_extend_garmin_export_coverage_to_" as Backlog
+    state "1. Confirm scope dependencies and linked" as Scope
+    state "2. Implement the next coherent delivery" as Build
+    state "3. Checkpoint the wave in a" as Verify
+    state "venv Scripts python -m unittest discover" as Validation
+    state "Done report" as Report
+    [*] --> Backlog
+    Backlog --> Scope
+    Scope --> Build
+    Build --> Verify
+    Verify --> Validation
+    Validation --> Report
+    Report --> [*]
 ```
 
 # Plan
@@ -33,7 +42,7 @@ flowchart LR
 - [x] 2. Implement the next coherent delivery wave from the backlog item.
 - [x] 3. Checkpoint the wave in a commit-ready state, validate it, and update the linked Logics docs.
 - [x] CHECKPOINT: leave the current wave commit-ready and update the linked Logics docs before continuing.
-- [ ] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
+- [x] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
 - [x] GATE: do not close a wave or step until the relevant automated tests and quality checks have been run successfully.
 - [x] FINAL: Update related Logics docs
 
@@ -100,7 +109,7 @@ flowchart LR
 - [x] Validation commands executed and results captured.
 - [x] No wave or step was closed before the relevant automated tests and quality checks passed.
 - [x] Linked request/backlog/task docs updated during completed waves and at closure.
-- [ ] Each completed wave left a commit-ready checkpoint or an explicit exception is documented.
+- [x] Each completed wave left a commit-ready checkpoint or an explicit exception is documented.
 - [x] Status is `Done` and progress is `100%`.
 
 # Report
@@ -132,3 +141,5 @@ flowchart LR
 - `profile_snapshots`: 2
 - `heart_rate_zones`: 1
 - latest report day: `2026-04-07`
+
+# Notes

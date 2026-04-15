@@ -25,12 +25,11 @@
 ```mermaid
 %% logics-kind: backlog
 %% logics-signature: backlog|clean-local-validation-artifacts-and-log|req-005-harden-real-export-normalization|the-recent-coach-delivery-wave-introduce|ac1-cleanup-removes-or-clarifies-tempora
-flowchart LR
-    Request[req 005 real export hardening] --> Audit[Audit repo and logics hygiene]
-    Audit --> Decide[Decide what to keep clarify or ignore]
-    Decide --> Clean[Apply bounded cleanup]
-    Clean --> Guard[Protect local-only artifacts]
-    Guard --> Task[Execution task]
+flowchart TD
+    Request[req_005_harden_real_export_normalization_a] --> Problem[The recent coach delivery wave introduced]
+    Problem --> Scope[Clean local validation artifacts and logic]
+    Scope --> Acceptance[AC1: Cleanup removes or clarifies temporar]
+    Acceptance --> Tasks[task_006_clean_local_validation_artifacts_]
 ```
 
 # Acceptance criteria

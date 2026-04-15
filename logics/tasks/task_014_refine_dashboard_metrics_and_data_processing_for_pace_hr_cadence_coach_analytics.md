@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and linked request/backlog references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md`.
 - Derived from backlog item `item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics`.
 - Source file: `logics\backlog\item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md`.
 - Related request(s): `req_013_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics`.
@@ -114,3 +115,5 @@ stateDiagram-v2
   - `.venv\Scripts\python -m compileall coach_garmin`
   - `node --check web/app.js`
   - `python logics/skills/logics.py lint --require-status`
+
+# Notes

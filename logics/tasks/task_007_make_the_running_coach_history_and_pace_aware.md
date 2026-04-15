@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and dependencies/references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_007_make_the_running_coach_history_and_pace_aware.md`.
 - Derived from backlog item `item_007_make_the_running_coach_history_and_pace_aware`.
 - Source file: `logics\backlog\item_007_make_the_running_coach_history_and_pace_aware.md`.
 - Related request(s): `req_006_make_the_running_coach_history_and_pace_aware`.
@@ -21,12 +22,20 @@
 ```mermaid
 %% logics-kind: task
 %% logics-signature: task|make-the-running-coach-history-aware-and|item-007-make-the-running-coach-history-|1-define-the-upgraded-coaching-contract|venv-scripts-python-m-unittest-discover
-flowchart LR
-    Backlog[item 007 coach intelligence] --> Step1[1 define the history aware and pace aware contract]
-    Step1 --> Step2[2 enrich the local analysis layer]
-    Step2 --> Step3[3 upgrade prompt and session generation]
-    Step3 --> Step4[4 validate recent race and injury return cases]
-    Step4 --> Report[Done report]
+stateDiagram-v2
+    state "item_007_make_the_running_coach_history_an" as Backlog
+    state "1. Define the upgraded coaching contract" as Scope
+    state "2. Extend the local coaching tools" as Build
+    state "3. Detect recent benchmark performances an" as Verify
+    state "venv Scripts python -m unittest discover" as Validation
+    state "Done report" as Report
+    [*] --> Backlog
+    Backlog --> Scope
+    Scope --> Build
+    Build --> Verify
+    Verify --> Validation
+    Validation --> Report
+    Report --> [*]
 ```
 
 # Plan
@@ -47,7 +56,7 @@ flowchart LR
 - [x] a multi-goal scenario requiring a principal objective
 - [x] 9. Run targeted validation on realistic prompts and confirm the output becomes materially more specific and history-aware.
 - [x] CHECKPOINT: leave the current wave commit-ready and update the linked Logics docs before continuing.
-- [ ] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
+- [x] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
 - [x] GATE: do not close a wave or step until the relevant automated tests and quality checks have been run successfully.
 - [x] FINAL: Update related Logics docs
 
@@ -139,3 +148,5 @@ flowchart LR
 - the generated week includes more specific session structure and pace cues instead of only generic workout labels
 - Remaining limitation:
 - the local LLM can still phrase the top-level analysis too generically at times, so the deterministic analysis layer remains an important backstop.
+
+# Notes

@@ -4,12 +4,13 @@
 > Status: Done
 > Understanding: 95
 > Confidence: 92
-> Progress: 100
+> Progress: 100%
 > Complexity: High
 > Theme: Health
 > Reminder: Update status/understanding/confidence/progress and dependencies/references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md`.
 - Derived from backlog item `item_000_backup_garmin_connect_data_and_build_first_interpretation_layer`.
 - Source file: `logics\backlog\item_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md`.
 - Related request(s): `req_000_backup_garmin_connect_data_and_build_first_interpretation_layer`.
@@ -22,12 +23,20 @@
 ```mermaid
 %% logics-kind: task
 %% logics-signature: task|backup-garmin-connect-data-and-build-fir|item-000-backup-garmin-connect-data-and-|1-define-the-local-sync-storage|py-3-logics-skills-logics-py-lint
-flowchart LR
-    Backlog[item 000 backup garmin connect data] --> Step1[1. Define contracts and storage]
-    Step1 --> Step2[2. Implement manual sync foundation]
-    Step2 --> Step3[3. Normalize and document outputs]
-    Step3 --> Validation[Run py 3 logics skills logics py lint]
-    Validation --> Report[Done report]
+stateDiagram-v2
+    state "item_000_backup_garmin_connect_data_and_bu" as Backlog
+    state "1. Define the local sync storage" as Scope
+    state "2. Create the initial implementation skele" as Build
+    state "3. Implement raw persistence so fetched" as Verify
+    state "py -3 logics skills logics.py lint" as Validation
+    state "Done report" as Report
+    [*] --> Backlog
+    Backlog --> Scope
+    Scope --> Build
+    Build --> Verify
+    Verify --> Validation
+    Validation --> Report
+    Report --> [*]
 ```
 
 # Plan
@@ -38,7 +47,7 @@ flowchart LR
 - [x] 5. Add the first deterministic derived metric contract and report shape for running load, recovery/fatigue, sleep quality, cardio consistency, and progression signals.
 - [x] 6. Document the storage layout, supported datasets, known gaps, and manual sync workflow, then update linked Logics docs with the implementation reality.
 - [x] CHECKPOINT: leave the current wave commit-ready and update the linked Logics docs before continuing.
-- [ ] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
+- [x] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
 - [x] GATE: do not close a wave or step until the relevant automated tests and quality checks have been run successfully.
 - [x] FINAL: Update related Logics docs
 
@@ -125,3 +134,5 @@ flowchart LR
 - live authenticated Garmin retrieval is not implemented yet
 - normalization currently relies on practical field aliases for export formats
 - a later task should harden schema mapping against real user exports and broaden provider coverage
+
+# Notes

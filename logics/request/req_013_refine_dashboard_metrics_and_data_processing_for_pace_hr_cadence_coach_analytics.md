@@ -40,15 +40,9 @@
 %% logics-kind: request
 %% logics-signature: request|refine-dashboard-metrics-and-data-proces|simplify-the-dashboard-by-removing-low-v|ac1-the-main-dashboard-no-longer
 flowchart TD
-    Raw[Raw Garmin and FIT data] --> Filter[Filter steady running segments]
-    Filter --> PaceHR[Pace versus heart rate curve]
-    Filter --> Cadence[Cadence trend and evolution]
-    Raw --> Load[Load and recovery features]
-    PaceHR --> Dashboard[Actionable dashboard]
-    Cadence --> Dashboard
-    Load --> Dashboard
-    Dashboard --> Coach[Better coaching signals]
-    Coach --> Filter
+    Trigger[Refine dashboard metrics and data processi] --> Need[Simplify the dashboard by removing low-val]
+    Need --> Outcome[AC1: The main dashboard no longer]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Scope
@@ -139,3 +133,4 @@ flowchart TD
 
 # Backlog
 - `item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics`
+- `logics/backlog/item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md`

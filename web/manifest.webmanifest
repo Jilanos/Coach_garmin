@@ -2,7 +2,7 @@
   "name": "Coach Garmin",
   "short_name": "Coach Garmin",
   "description": "Local-first coaching PWA for Garmin data",
-  "start_url": "/?v=20260414-navfix18",
+  "start_url": "/?v=20260414-navfix25",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b1020",
@@ -15,6 +15,13 @@
     }
   ]
 }
+
+
+
+
+
+
+
 
 
 

@@ -59,9 +59,7 @@ Model import state, sync state, and workspace state as separate concepts in the 
 - Preserve backwards compatibility for any existing saved workspace settings.
 
 # References
-- [req_012_clarify_import_workflow_accent_handling_and_refresh_actions](../request/req_012_clarify_import_workflow_accent_handling_and_refresh_actions.md)
-- [item_013_clarify_import_workflow_accent_handling_and_refresh_actions](../backlog/item_013_clarify_import_workflow_accent_handling_and_refresh_actions.md)
-
+- (none yet)
 # Follow-up work
 - Implement the import page layout and button ordering that matches this decision.
 - Move workspace path configuration into Settings and update persistence accordingly.

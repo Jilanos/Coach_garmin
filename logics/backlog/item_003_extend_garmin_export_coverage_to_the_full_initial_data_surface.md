@@ -23,12 +23,12 @@
 
 ```mermaid
 %% logics-kind: backlog
-%% logics-signature: backlog|extend-garmin-export-coverage-to-the-ful|req-003-extend-garmin-export-coverage|expand-the-garmin-export-import-pipeline|ac1-the-request-defines-that-coverage
-flowchart LR
-    Request[req 003 extend garmin export coverage] --> Problem[Expand the Garmin export import pipeline]
+%% logics-signature: backlog|extend-garmin-export-coverage-to-the-ful|req-003-extend-garmin-export-coverage-to|expand-the-garmin-export-import-pipeline|ac1-the-request-defines-that-coverage
+flowchart TD
+    Request[req_003_extend_garmin_export_coverage_to_t] --> Problem[Expand the Garmin export import pipeline]
     Problem --> Scope[Extend Garmin export coverage to the]
     Scope --> Acceptance[AC1: The request defines that coverage]
-    Acceptance --> Tasks[Execution task]
+    Acceptance --> Tasks[task_003_extend_garmin_export_coverage_to_]
 ```
 
 # Acceptance criteria
@@ -88,3 +88,4 @@ flowchart LR
 - Source file: `logics\request\req_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md`.
 - Keep this backlog item as one bounded delivery slice; create sibling backlog items for the remaining request coverage instead of widening this doc.
 - Request context seeded into this backlog item from `logics\request\req_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md`.
+- Derived from `logics/request/req_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md`.

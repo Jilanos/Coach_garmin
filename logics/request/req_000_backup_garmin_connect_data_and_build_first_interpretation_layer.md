@@ -1,7 +1,7 @@
 ## req_000_backup_garmin_connect_data_and_build_first_interpretation_layer - Backup Garmin Connect data and build first interpretation layer
 > From version: 0.1.0
 > Schema version: 1.0
-> Status: Ready
+> Status: Done
 > Understanding: 95
 > Confidence: 92
 > Complexity: High
@@ -52,9 +52,8 @@
 %% logics-kind: request
 %% logics-signature: request|backup-garmin-connect-data-and-build-fir|create-a-reliable-local-backup-workflow|ac1-the-request-identifies-the-target
 flowchart TD
-    Trigger[Garmin Connect history] --> Need[Local backup and structure]
-    Need --> Processing[First interpretation layer]
-    Processing --> Outcome[Actionable running and health context]
+    Trigger[Backup Garmin Connect data and build] --> Need[Create a reliable local backup workflow]
+    Need --> Outcome[AC1: The request identifies the target]
     Outcome --> Backlog[Backlog slice]
 ```
 
@@ -68,10 +67,10 @@ flowchart TD
 - AC7: The request lists the key open questions that still need user answers before implementation details are finalized.
 
 # Definition of Ready (DoR)
-- [ ] Problem statement is explicit and user impact is clear.
-- [ ] Scope boundaries (in/out) are explicit.
-- [ ] Acceptance criteria are testable.
-- [ ] Dependencies and known risks are listed.
+- [x] Problem statement is explicit and user impact is clear.
+- [x] Scope boundaries (in/out) are explicit.
+- [x] Acceptance criteria are testable.
+- [x] Dependencies and known risks are listed.
 
 # Risks and dependencies
 - Garmin Connect access patterns may change over time and may require authenticated sessions or manual export fallbacks.
@@ -109,3 +108,4 @@ flowchart TD
 - Skip when: Skip when the work targets unrelated product areas or later-stage implementation details that belong in backlog/tasks.
 # Backlog
 - `item_000_backup_garmin_connect_data_and_build_first_interpretation_layer`
+- `logics/backlog/item_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md`

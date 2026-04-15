@@ -34,11 +34,9 @@
 %% logics-kind: request
 %% logics-signature: request|make-the-running-coach-history-aware-and|upgrade-the-current-coaching-mvp-so|ac1-the-coach-analyzes-recent-training
 flowchart TD
-    Goal[User states running goal] --> Analyze[Analyze training history and pace signals]
-    Analyze --> Assess[Assess fitness readiness and constraints]
-    Assess --> Decide[Choose coaching priority and progression logic]
-    Decide --> Plan[Generate specific weekly sessions]
-    Plan --> Save[Persist actionable local plan]
+    Trigger[Make the running coach history-aware and] --> Need[Upgrade the current coaching MVP so]
+    Need --> Outcome[AC1: The coach analyzes recent training]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Scope
@@ -133,5 +131,6 @@ flowchart TD
 # Backlog
 - `item_007_make_the_running_coach_history_and_pace_aware`
 
+- `logics/backlog/item_007_make_the_running_coach_history_and_pace_aware.md`
 # Progress notes
 - `item_007_make_the_running_coach_history_and_pace_aware` is complete.

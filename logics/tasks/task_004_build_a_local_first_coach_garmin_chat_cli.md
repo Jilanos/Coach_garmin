@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and dependencies/references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_004_build_a_local_first_coach_garmin_chat_cli.md`.
 - Derived from backlog item `item_004_build_a_local_first_coach_garmin_chat_cli`.
 - Source file: `logics\backlog\item_004_build_a_local_first_coach_garmin_chat_cli.md`.
 - Related request(s): `req_004_build_a_local_first_coach_garmin_chat_cli`.
@@ -20,12 +21,20 @@
 ```mermaid
 %% logics-kind: task
 %% logics-signature: task|build-a-local-first-coach-garmin-chat-cl|item-004-build-a-local-first-coach-garmi|1-define-the-mvp-coaching-contract|venv-scripts-python-m-unittest-discover
-flowchart LR
-    Backlog[item 004 build a local first] --> Step1[1. Define the MVP coaching contract]
-    Step1 --> Step2[2. Implement the Ollama adapter and]
-    Step2 --> Step3[3. Implement the four local tools]
-    Step3 --> Validation[venv Scripts python -m unittest discover]
-    Validation --> Report[Done report]
+stateDiagram-v2
+    state "item_004_build_a_local_first_coach_garmin_" as Backlog
+    state "1. Define the MVP coaching contract" as Scope
+    state "2. Implement the Ollama adapter and" as Build
+    state "3. Implement the four local tools" as Verify
+    state "venv Scripts python -m unittest discover" as Validation
+    state "Done report" as Report
+    [*] --> Backlog
+    Backlog --> Scope
+    Scope --> Build
+    Build --> Verify
+    Verify --> Validation
+    Validation --> Report
+    Report --> [*]
 ```
 
 # Plan
@@ -41,7 +50,7 @@ flowchart LR
 - [x] 6. Add automated tests for the CLI entrypoint, the four tools, the clarification flow, and the main provider error path.
 - [x] 7. Run targeted validation and document the output paths, commands, and known MVP limits.
 - [x] CHECKPOINT: leave the current wave commit-ready and update the linked Logics docs before continuing.
-- [ ] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
+- [x] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
 - [x] GATE: do not close a wave or step until the relevant automated tests and quality checks have been run successfully.
 - [x] FINAL: Update related Logics docs
 
@@ -103,7 +112,7 @@ flowchart LR
 - [x] Validation commands executed and results captured.
 - [x] No wave or step was closed before the relevant automated tests and quality checks passed.
 - [x] Linked request/backlog/task docs updated during completed waves and at closure.
-- [ ] Each completed wave left a commit-ready checkpoint or an explicit exception is documented.
+- [x] Each completed wave left a commit-ready checkpoint or an explicit exception is documented.
 - [x] Status is `Done` and progress is `100%`.
 
 # Report
@@ -133,3 +142,5 @@ flowchart LR
 - Known MVP limits:
 - the local model can still return weak session labels or thin justifications, so the deterministic skeleton remains an important safety net
 - the coach currently optimizes for a one-week plan rather than a multi-week progression
+
+# Notes

@@ -20,10 +20,10 @@ The local-first PWA coach is now functional and installable, but first user feed
 %% logics-kind: backlog
 %% logics-signature: backlog|pwa-coach-ux-polish-and-dashboard-enrich|req-009-pwa-coach-ux-polish-and-dashboar|the-local-first-pwa-coach-is-now|ac1-the-pwa-landing-screen-presents
 flowchart TD
-    Request[req_009_pwa_coach_ux_polish_and_dashboard_] --> Problem[Make the first PWA version feel]
+    Request[req_009_pwa_coach_ux_polish_and_dashboard_] --> Problem[The local-first PWA coach is now]
     Problem --> Scope[PWA coach UX polish and dashboard]
     Scope --> Acceptance[AC1: The PWA landing screen presents]
-    Acceptance --> Tasks[Execution task]
+    Acceptance --> Tasks[task_010_pwa_coach_ux_polish_and_dashboard]
 ```
 
 # Acceptance criteria
@@ -78,3 +78,4 @@ flowchart TD
 - Keep this backlog item as one bounded delivery slice; create sibling backlog items for the remaining request coverage instead of widening this doc.
 - Request context seeded into this backlog item from `logics\request\req_009_pwa_coach_ux_polish_and_dashboard_enrichment.md`.
 - Task `task_010_pwa_coach_ux_polish_and_dashboard_enrichment` was finished via `logics_flow.py finish task` on 2026-04-12.
+- Derived from `logics/request/req_009_pwa_coach_ux_polish_and_dashboard_enrichment.md`.

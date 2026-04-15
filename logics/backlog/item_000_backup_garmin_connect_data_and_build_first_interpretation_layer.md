@@ -4,7 +4,7 @@
 > Status: Done
 > Understanding: 95
 > Confidence: 92
-> Progress: 100
+> Progress: 100%
 > Complexity: High
 > Theme: Health
 > Reminder: Update status/understanding/confidence/progress and linked task references when you edit this doc.
@@ -28,11 +28,11 @@
 ```mermaid
 %% logics-kind: backlog
 %% logics-signature: backlog|backup-garmin-connect-data-and-build-fir|req-000-backup-garmin-connect-data-and-b|create-a-reliable-local-backup-workflow|ac1-build-a-rerunnable-local-extraction
-flowchart LR
-    Request[req 000 backup garmin connect data] --> Problem[Create a reliable local backup workflow]
-    Problem --> Scope[Raw store normalize interpret]
-    Scope --> Acceptance[AC1: Build rerunnable extraction]
-    Acceptance --> Tasks[Execution task]
+flowchart TD
+    Request[req_000_backup_garmin_connect_data_and_bui] --> Problem[Create a reliable local backup workflow]
+    Problem --> Scope[Backup Garmin Connect data and build]
+    Scope --> Acceptance[AC1: Build a rerunnable local extraction]
+    Acceptance --> Tasks[task_000_backup_garmin_connect_data_and_bu]
 ```
 
 # Acceptance criteria
@@ -84,3 +84,4 @@ flowchart LR
 - Architecture follow-up completed via `adr_000_choose_local_first_garmin_data_sync_and_storage_architecture`.
 - Delivery completed via `task_000_backup_garmin_connect_data_and_build_first_interpretation_layer`.
 - Implementation now includes a runnable Python CLI, local raw/provenance storage, DuckDB normalization, deterministic report generation, project documentation, and fixture-based validation.
+- Derived from `logics/request/req_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md`.

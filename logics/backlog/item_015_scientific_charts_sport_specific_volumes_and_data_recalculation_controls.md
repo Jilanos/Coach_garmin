@@ -29,7 +29,7 @@ flowchart TD
     Request[req_015_scientific_charts_sport_specific_v] --> Problem[Make the dashboard scientifically readable]
     Problem --> Scope[Scientific charts sport-specific volumes a]
     Scope --> Acceptance[AC1: The running dashboard excludes bike]
-    Acceptance --> Tasks[Execution task]
+    Acceptance --> Tasks[task_015_scientific_charts_sport_specific_]
 ```
 
 # Acceptance criteria
@@ -79,3 +79,4 @@ flowchart TD
 - Source file: `logics\request\req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md`.
 - Keep this backlog item as one bounded delivery slice; create sibling backlog items for the remaining request coverage instead of widening this doc.
 - Request context seeded into this backlog item from `logics\request\req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md`.
+- Derived from `logics/request/req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md`.

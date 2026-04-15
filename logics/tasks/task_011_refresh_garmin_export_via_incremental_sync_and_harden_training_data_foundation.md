@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and linked request/backlog references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation.md`.
 - Derived from backlog item `item_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation`.
 - Source file: `logics/backlog/item_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation.md`.
 - Related request(s): `req_010_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation`.
@@ -21,19 +22,19 @@
 %% logics-kind: task
 %% logics-signature: task|refresh-garmin-export-via-incremental-sy|item-011-refresh-garmin-export-via-incre|1-implement-the-zip-baseline-plus|run-the-relevant-automated-tests-for
 stateDiagram-v2
-    state "item 011 baseline refresh slice" as Backlog
-    state "1. Implement ZIP baseline plus refresh" as Build
-    state "2. Add SQLite sync state and DuckDB analytics split" as State
-    state "3. Add pace and benchmark intelligence" as Signals
-    state "4. Validate import and refresh paths" as Validate
-    state "Done report" as Done
+    state "item_011_refresh_garmin_export_via_increme" as Backlog
+    state "1. Implement the ZIP baseline plus" as Scope
+    state "2. Add or harden the SQLite" as Build
+    state "3. Keep DuckDB as the main" as Verify
+    state "Run the relevant automated tests for" as Validation
+    state "Done report" as Report
     [*] --> Backlog
-    Backlog --> Build
-    Build --> State
-    State --> Signals
-    Signals --> Validate
-    Validate --> Done
-    Done --> [*]
+    Backlog --> Scope
+    Scope --> Build
+    Build --> Verify
+    Verify --> Validation
+    Validation --> Report
+    Report --> [*]
 ```
 
 # Plan

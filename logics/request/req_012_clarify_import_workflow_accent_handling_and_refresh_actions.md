@@ -41,10 +41,9 @@
 %% logics-kind: request
 %% logics-signature: request|clarify-import-workflow-accent-handling-|make-the-import-workspace-easier-to|ac1-the-import-page-clearly-distinguishe
 flowchart TD
-    Source[Garmin source folder] --> Workspace[Local working workspace]
-    Workspace --> Status[Freshness and import status]
-    Status --> Actions[Import sync reuse or refresh]
-    Actions --> Coach[Coach and analysis use the workspace]
+    Trigger[Clarify import workflow accent handling an] --> Need[Make the import workspace easier to]
+    Need --> Outcome[AC1: The import page clearly distinguishes]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Scope
@@ -121,3 +120,4 @@ flowchart TD
 - Skip when: Skip when the work targets coach logic, analytics models, or backend sync algorithms.
 # Backlog
 - `item_013_clarify_import_workflow_accent_handling_and_refresh_actions`
+- `logics/backlog/item_013_clarify_import_workflow_accent_handling_and_refresh_actions.md`

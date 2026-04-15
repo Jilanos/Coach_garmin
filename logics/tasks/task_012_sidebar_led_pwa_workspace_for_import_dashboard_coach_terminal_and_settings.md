@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and linked request/backlog references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_012_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md`.
 - Derived from backlog item `item_012_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings`.
 - Source file: `logics\backlog\item_012_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md`.
 - Related request(s): `req_011_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings`.
@@ -107,3 +108,5 @@ stateDiagram-v2
   - `node --check web/sw.js`
   - `.venv\Scripts\python -m unittest tests.test_pwa_service -v`
   - `.venv\Scripts\python -m unittest discover -s tests -v`
+
+# Notes

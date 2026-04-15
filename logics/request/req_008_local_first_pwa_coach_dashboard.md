@@ -27,14 +27,9 @@
 %% logics-kind: request
 %% logics-signature: request|local-first-pwa-coach-dashboard|deliver-a-first-version-of-coach|ac1-a-user-can-install-the
 flowchart TD
-    Trigger[User opens the coach app] --> Chat[Chat intake and clarification]
-    Chat --> Storage[Choose local storage directory]
-    Chat --> AI[Choose AI provider]
-    Storage --> Data[Import and analyze Garmin data]
-    AI --> Coach[Generate coaching response]
-    Data --> Dashboard[Show health and import dashboard]
-    Coach --> Dashboard
-    Dashboard --> Feedback[User reviews status and next steps]
+    Trigger[Local-first PWA coach dashboard] --> Need[Deliver a first version of Coach]
+    Need --> Outcome[AC1: A user can install the]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Scope
@@ -89,7 +84,7 @@ flowchart TD
 5. Android path: keep the web/PWA core clean so a later wrapper such as Capacitor can reuse it without major rewrites.
 
 # Companion docs
-- Product brief(s): (none yet)
+- Product brief(s): `prod_000_local_first_pwa_coach_dashboard`
 - Architecture decision(s): (none yet)
 
 # AI Context
@@ -100,3 +95,4 @@ flowchart TD
 
 # Backlog
 - `item_009_promoted_backlog_item`
+- `logics/backlog/item_009_local_first_pwa_coach_dashboard.md`

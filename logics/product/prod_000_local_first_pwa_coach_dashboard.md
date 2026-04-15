@@ -1,9 +1,9 @@
 ## prod_000_local_first_pwa_coach_dashboard - Local-first PWA coach dashboard
 > Date: 2026-04-11
 > Status: Active
-> Related request: [req_008_local_first_pwa_coach_dashboard](../request/req_008_local_first_pwa_coach_dashboard.md)
-> Related backlog: [item_009_local_first_pwa_coach_dashboard](../backlog/item_009_local_first_pwa_coach_dashboard.md)
-> Related task: [task_009_local_first_pwa_coach_dashboard](../tasks/task_009_local_first_pwa_coach_dashboard.md)
+> Related request: `req_008_local_first_pwa_coach_dashboard`
+> Related backlog: `item_009_local_first_pwa_coach_dashboard`
+> Related task: `task_009_local_first_pwa_coach_dashboard`
 > Related architecture: [adr_001_choose_local_pwa_storage_and_provider_integration](../architecture/adr_001_choose_local_pwa_storage_and_provider_integration.md)
 > Reminder: Update status, linked refs, scope, decisions, success signals, and open questions when you edit this doc.
 
@@ -60,10 +60,9 @@ The user needs a simple way to open the coach in a browser, ask questions, keep 
 - The product can later be wrapped for desktop or mobile without rewriting the core UI.
 
 # References
-- [req_008_local_first_pwa_coach_dashboard](../request/req_008_local_first_pwa_coach_dashboard.md)
-- [item_009_local_first_pwa_coach_dashboard](../backlog/item_009_local_first_pwa_coach_dashboard.md)
-- [task_009_local_first_pwa_coach_dashboard](../tasks/task_009_local_first_pwa_coach_dashboard.md)
-
+- `logics/request/req_008_local_first_pwa_coach_dashboard.md`
+- `logics/backlog/item_009_local_first_pwa_coach_dashboard.md`
+- `logics/tasks/task_009_local_first_pwa_coach_dashboard.md`
 # Open questions
 - Which dashboard metrics are the most valuable at a glance for a runner?
 - Should the first release prioritize desktop install UX or offline browsing UX?

@@ -33,11 +33,11 @@
 ```mermaid
 %% logics-kind: backlog
 %% logics-signature: backlog|make-the-running-coach-history-aware-and|req-006-make-the-running-coach-history-a|the-current-local-first-coaching-mvp-is|ac1-the-coach-analyzes-recent-training
-flowchart LR
-    Request[req 006 coach history aware] --> Problem[Generic coaching is the issue]
-    Problem --> Scope[Analyze history pace and phase]
-    Scope --> Acceptance[Concrete individualized sessions]
-    Acceptance --> Task[Execution task]
+flowchart TD
+    Request[req_006_make_the_running_coach_history_and] --> Problem[The current local-first coaching MVP is]
+    Problem --> Scope[Make the running coach history-aware and]
+    Scope --> Acceptance[AC1: The coach analyzes recent training]
+    Acceptance --> Tasks[task_007_make_the_running_coach_history_an]
 ```
 
 # Acceptance criteria
@@ -92,3 +92,4 @@ flowchart LR
 - This slice should improve coaching quality first, before adding more surfaces or UI layers.
 - Delivered by `task_007_make_the_running_coach_history_and_pace_aware`.
 - Outcome: the coach now uses multi-window history, benchmark extraction, pace inference, and principal-objective handling to generate more analytical and specific weekly sessions.
+- Derived from `logics/request/req_006_make_the_running_coach_history_and_pace_aware.md`.

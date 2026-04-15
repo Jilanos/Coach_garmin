@@ -6,6 +6,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from coach_garmin.text_encoding import repair_text_tree
+
 from coach_garmin.config import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL
 
 
@@ -87,7 +89,7 @@ class OllamaCoachClient:
             request = Request(f"{self.base_url}{path}", method="GET")
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
-                return json.loads(response.read().decode("utf-8"))
+                return repair_text_tree(json.loads(response.read().decode("utf-8")))
         except HTTPError as exc:
             raise OllamaConnectionError(f"Ollama request failed with HTTP {exc.code}.") from exc
         except URLError as exc:
@@ -129,13 +131,13 @@ class OllamaCoachClient:
     def _parse_json_response(content: str) -> dict[str, Any]:
         text = content.strip()
         try:
-            return json.loads(text)
+            return repair_text_tree(json.loads(text))
         except json.JSONDecodeError:
             start = text.find("{")
             end = text.rfind("}")
             if start == -1 or end == -1 or end <= start:
                 raise RuntimeError("Ollama returned non-JSON output for the weekly plan.")
             try:
-                return json.loads(text[start : end + 1])
+                return repair_text_tree(json.loads(text[start : end + 1]))
             except json.JSONDecodeError as exc:
                 raise RuntimeError("Ollama returned invalid JSON for the weekly plan.") from exc

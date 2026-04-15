@@ -1,7 +1,7 @@
 ## req_002_patch_manual_import_to_support_full_garmin_connect_export_shapes - Patch manual import to support full Garmin Connect export shapes
 > From version: 0.1.0
 > Schema version: 1.0
-> Status: Draft
+> Status: Done
 > Understanding: 95
 > Confidence: 92
 > Complexity: Medium
@@ -48,13 +48,11 @@
 
 ```mermaid
 %% logics-kind: request
-%% logics-signature: request|patch-manual-import-to-support-full-ga|full-garmin-export-folder-detected-->map-|ac1-the-request-defines-that-the-pa
+%% logics-signature: request|patch-manual-import-to-support-full-garm|extend-the-manual-import-pipeline-so|ac1-the-request-defines-that-the
 flowchart TD
-    Export[Full Garmin export folder] --> Detect[Detect Garmin-native files]
-    Detect --> Map[Map to internal datasets]
-    Map --> Import[Reuse manual import pipeline]
-    Import --> Output[Normalized data and report]
-    Detect --> Gaps[Unsupported files listed]
+    Trigger[Patch manual import to support full] --> Need[Extend the manual import pipeline so]
+    Need --> Outcome[AC1: The request defines that the]
+    Outcome --> Backlog[Backlog slice]
 ```
 
 # Acceptance criteria
@@ -107,3 +105,4 @@ flowchart TD
 
 # Backlog
 - `item_002_patch_manual_import_to_support_full_garmin_connect_export_shapes`
+- `logics/backlog/item_002_patch_manual_import_to_support_full_garmin_connect_export_shapes.md`

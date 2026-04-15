@@ -28,11 +28,11 @@
 ```mermaid
 %% logics-kind: backlog
 %% logics-signature: backlog|build-a-local-first-coach-garmin-chat-cl|req-004-build-a-local-first-coach-garmin|create-the-first-user-facing-coaching-su|ac1-a-user-can-run-python
-flowchart LR
-    Request[req 004 build a local first] --> Problem[Create the first user-facing coaching surf]
+flowchart TD
+    Request[req_004_build_a_local_first_coach_garmin_c] --> Problem[Create the first user-facing coaching surf]
     Problem --> Scope[Build a local-first coach-garmin chat CLI]
     Scope --> Acceptance[AC1: A user can run python]
-    Acceptance --> Tasks[task 004 build a local first]
+    Acceptance --> Tasks[task_004_build_a_local_first_coach_garmin_]
 ```
 
 # Acceptance criteria
@@ -94,3 +94,4 @@ flowchart LR
 - Source file: `logics\request\req_004_build_a_local_first_coach_garmin_chat_cli.md`.
 - Keep this backlog item as one bounded MVP slice; future check-in modes, Markdown exports, or non-interactive flows should be separate follow-up items.
 - Delivery completed through `task_004_build_a_local_first_coach_garmin_chat_cli`.
+- Derived from `logics/request/req_004_build_a_local_first_coach_garmin_chat_cli.md`.

@@ -6,6 +6,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from coach_garmin.text_encoding import repair_text_tree
+
 from coach_garmin.config import DEFAULT_OPENAI_BASE_URL, DEFAULT_OPENAI_MODEL
 
 
@@ -82,7 +84,7 @@ class OpenAICoachClient:
         request = Request(url, data=data, headers=headers, method=method)
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
-                return json.loads(response.read().decode("utf-8"))
+                return repair_text_tree(json.loads(response.read().decode("utf-8")))
         except HTTPError as exc:
             if exc.code in {401, 403}:
                 raise OpenAIConnectionError("OPENAI_API_KEY was rejected. Check the key and retry.") from exc
@@ -135,13 +137,13 @@ class OpenAICoachClient:
                 lines = lines[:-1]
             text = "\n".join(lines).strip()
         try:
-            return json.loads(text)
+            return repair_text_tree(json.loads(text))
         except json.JSONDecodeError:
             start = text.find("{")
             end = text.rfind("}")
             if start == -1 or end == -1 or end <= start:
                 raise RuntimeError("OpenAI returned non-JSON output for the weekly plan.")
             try:
-                return json.loads(text[start : end + 1])
+                return repair_text_tree(json.loads(text[start : end + 1]))
             except json.JSONDecodeError as exc:
                 raise RuntimeError("OpenAI returned invalid JSON for the weekly plan.") from exc

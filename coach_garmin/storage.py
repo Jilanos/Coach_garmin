@@ -22,6 +22,7 @@ from coach_garmin.config import (
     DEFAULT_STATE_DB_PATH,
 )
 from coach_garmin.fit_parser import read_fit_activity_records
+from coach_garmin.text_encoding import repair_text_tree
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +63,7 @@ def compute_sha256(path: Path) -> str:
 
 def _load_json_or_csv(path: Path) -> Any:
     if path.suffix.lower() == ".json":
-        return json.loads(path.read_text(encoding="utf-8"))
+        return repair_text_tree(json.loads(path.read_text(encoding="utf-8")))
 
     if path.suffix.lower() == ".csv":
         with path.open("r", encoding="utf-8-sig", newline="") as handle:
@@ -203,7 +204,8 @@ def write_raw_payload(
 
 def write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    repaired = repair_text_tree(payload)
+    path.write_text(json.dumps(repaired, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 @contextmanager

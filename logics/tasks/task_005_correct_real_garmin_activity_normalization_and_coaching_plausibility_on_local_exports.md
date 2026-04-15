@@ -10,6 +10,7 @@
 > Reminder: Update status/understanding/confidence/progress and dependencies/references when you edit this doc.
 
 # Context
+Derived from `logics/backlog/item_005_correct_real_garmin_activity_normalization_and_coaching_plausibility_on_local_exports.md`.
 - Derived from backlog item `item_005_correct_real_garmin_activity_normalization_and_coaching_plausibility_on_local_exports`.
 - Source file: `logics\backlog\item_005_correct_real_garmin_activity_normalization_and_coaching_plausibility_on_local_exports.md`.
 - Related request(s): `req_005_harden_real_export_normalization_and_clean_repo_delivery_artifacts`.
@@ -20,13 +21,20 @@
 ```mermaid
 %% logics-kind: task
 %% logics-signature: task|correct-real-garmin-activity-normalizati|item-005-correct-real-garmin-activity-no|1-reproduce-the-anomaly-on-the|venv-scripts-python-m-unittest-discover
-flowchart LR
-    Backlog[item 005 normalize real export] --> Step1[1 reproduce the anomaly on local export]
-    Step1 --> Step2[2 inspect payload fields and fix mapping]
-    Step2 --> Step3[3 add plausibility guardrails]
-    Step3 --> Step4[4 rerun local coach validation]
-    Step4 --> Validation[Run targeted tests and smoke checks]
-    Validation --> Report[Done report]
+stateDiagram-v2
+    state "item_005_correct_real_garmin_activity_norm" as Backlog
+    state "1. Reproduce the anomaly on the" as Scope
+    state "2. Inspect the relevant real activity" as Build
+    state "3. Implement tolerant-first corrections in" as Verify
+    state "venv Scripts python -m unittest discover" as Validation
+    state "Done report" as Report
+    [*] --> Backlog
+    Backlog --> Scope
+    Scope --> Build
+    Build --> Verify
+    Verify --> Validation
+    Validation --> Report
+    Report --> [*]
 ```
 
 # Plan
@@ -41,7 +49,7 @@ flowchart LR
 - [x] 7. Re-run the real local validation flow on `data/sources/garmin-export` and confirm the generated weekly plan is plausible.
 - [x] 8. Document the tolerant correction behavior, known limits, and local-only validation handling in the report and related docs.
 - [x] CHECKPOINT: leave the current wave commit-ready and update the linked Logics docs before continuing.
-- [ ] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
+- [x] CHECKPOINT: if the shared AI runtime is active and healthy, run `python logics/skills/logics.py flow assist commit-all` for the current step, item, or wave commit checkpoint.
 - [x] GATE: do not close a wave or step until the relevant automated tests and quality checks have been run successfully.
 - [x] FINAL: Update related Logics docs
 
@@ -123,3 +131,5 @@ flowchart LR
 - local smoke script using `run_import_export(...)`, `LocalCoachToolkit(...).history(days=21)`, and `run_coach_chat(...)` against `data/sources/garmin-export`
 - The copied export under `data/sources/garmin-export` remained local-only during validation and was not introduced into push-oriented repository state.
 - Commit checkpoint note: code and Logics docs are now aligned and validation is complete, but no commit was created in this task execution window.
+
+# Notes

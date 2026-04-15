@@ -1,45 +1,44 @@
-## req_014_scientific_dashboard_charts_and_sport_specific_volume_filtering - Scientific dashboard charts and sport-specific volume filtering
+## req_014_scientific_dashboard_charts_and_sport_specific_volume_filtering - Legacy precursor to scientific charts and sport-specific filtering
 > From version: 0.0.0
 > Schema version: 1.0
-> Status: Draft
+> Status: Archived
 > Understanding: 90%
 > Confidence: 85%
 > Complexity: Medium
 > Theme: General
-> Reminder: Update status/understanding/confidence and linked backlog/task references when you edit this doc.
+> Reminder: This request is a legacy precursor. Keep it as a traceability stub only and route new work through req_015 and item_015.
 
-# Needs
-- Clarify the scope and user value of Scientific dashboard charts and sport-specific volume filtering.
+# Summary
+This request was the first framing pass for scientific dashboard charts and sport-specific volume filtering.
+It has now been superseded by the more complete request/backlog/task chain:
+- `req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`
+- `item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`
+- `task_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`
 
 # Context
-- Capture the relevant context, constraints, and stakeholders for Scientific dashboard charts and sport-specific volume filtering.
+- The original idea remains useful as historical traceability.
+- The execution path now lives in the refined scientific charts wave.
+- Do not create new implementation work from this stub; extend the req_015 chain instead.
 
 ```mermaid
 %% logics-kind: request
-%% logics-signature: request|scientific-dashboard-charts-and-sport-sp|clarify-the-scope-and-user-value|ac1-confirm-scientific-dashboard-charts-
+%% logics-signature: request|scientific-dashboard-charts-and-sport-sp|legacy-precursor-to-scientific-charts-an|req-015-scientific-charts-sport-specific
 flowchart TD
-    Trigger[Scientific dashboard charts and sport-spec] --> Need[Clarify the scope and user value]
-    Need --> Outcome[AC1: Confirm Scientific dashboard charts a]
-    Outcome --> Backlog[Backlog slice]
+    Legacy[req_014 legacy precursor] --> Current[req_015 scientific charts wave]
+    Current --> Item[item_015 backlog]
+    Item --> Task[task_015 execution]
 ```
 
-# Acceptance criteria
-- AC1: Confirm Scientific dashboard charts and sport-specific volume filtering is framed clearly enough for backlog grooming.
-
-# Definition of Ready (DoR)
-- [ ] Problem statement is explicit and user impact is clear.
-- [ ] Scope boundaries (in/out) are explicit.
-- [ ] Acceptance criteria are testable.
-- [ ] Dependencies and known risks are listed.
-
 # Companion docs
-- Product brief(s): (none yet)
-- Architecture decision(s): (none yet)
+- Product brief(s): `prod_003_scientific_dashboard_charts_and_sport_specific_volume_filtering`
+- Architecture decision(s): `adr_004_scientific_charts_for_sport_specific_volumes_and_data_recalculation`
+- Superseded by: `req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls`
 
 # AI Context
-- Summary: Scientific dashboard charts and sport-specific volume filtering
-- Keywords: scientific, dashboard, charts, and, sport-specific, volume, filtering
-- Use when: Use when framing scope, context, and acceptance checks for Scientific dashboard charts and sport-specific volume filtering.
-- Skip when: Skip when the work targets another feature, repository, or workflow stage.
+- Summary: Legacy precursor for scientific dashboard charts and sport-specific volume filtering.
+- Keywords: scientific, dashboard, charts, sport-specific, volume, filtering, superseded
+- Use when: Use only for historical traceability or to understand the origin of the req_015 wave.
+- Skip when: Skip for all new implementation work.
+
 # Backlog
-- (none yet)
+- (none; superseded)

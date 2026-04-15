@@ -53,11 +53,9 @@ Keep coverage and similar diagnostics in debug views rather than the primary das
 - Roll out the updated dashboard on the local PWA shell once the analytics contract is stable.
 
 # References
-- `req_013_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics`
-- `item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics`
-- `task_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics`
-- `prod_002_refine_dashboard_metrics_and_data_processing_for_running_analytics`
-
+- `logics/request/req_013_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md`
+- `logics/backlog/item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md`
+- `logics/tasks/task_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md`
 # Follow-up work
 - Tune cadence reference bands once more real data has been exercised.
 - Consider a compact recovery card only if it improves decision quality.

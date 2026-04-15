@@ -1,7 +1,7 @@
 ## req_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data - Connect local pipeline to a real Garmin source and harden incremental sync on user data
 > From version: 0.1.0
 > Schema version: 1.0
-> Status: Ready
+> Status: Done
 > Understanding: 96
 > Confidence: 91
 > Complexity: High
@@ -51,9 +51,8 @@
 %% logics-kind: request
 %% logics-signature: request|connect-local-pipeline-to-a-real-garmin-|connect-the-current-local-first-garmin-p|ac1-the-request-defines-the-first
 flowchart TD
-    Trigger[Real Garmin source] --> Need[Connect and harden sync]
-    Need --> Incremental[Incremental dedupe and reruns]
-    Incremental --> Outcome[Trusted local real data sync]
+    Trigger[Connect local pipeline to a real] --> Need[Connect the current local-first Garmin pip]
+    Need --> Outcome[AC1: The request defines the first]
     Outcome --> Backlog[Backlog slice]
 ```
 
@@ -68,10 +67,10 @@ flowchart TD
 - AC8: The request identifies the first blocking real-world datasets for success as activities, sleep, heart rate, HRV, stress, and steps.
 
 # Definition of Ready (DoR)
-- [ ] Problem statement is explicit and user impact is clear.
-- [ ] Scope boundaries (in/out) are explicit.
-- [ ] Acceptance criteria are testable.
-- [ ] Dependencies and known risks are listed.
+- [x] Problem statement is explicit and user impact is clear.
+- [x] Scope boundaries (in/out) are explicit.
+- [x] Acceptance criteria are testable.
+- [x] Dependencies and known risks are listed.
 
 # Risks and dependencies
 - Garmin access paths may change, especially when authenticated retrieval depends on session behavior or unofficial endpoints.
@@ -114,3 +113,4 @@ flowchart TD
 - Skip when: Skip when the work is limited to synthetic fixtures, UI improvements, or later advisory features unrelated to ingestion robustness.
 # Backlog
 - `item_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data`
+- `logics/backlog/item_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data.md`

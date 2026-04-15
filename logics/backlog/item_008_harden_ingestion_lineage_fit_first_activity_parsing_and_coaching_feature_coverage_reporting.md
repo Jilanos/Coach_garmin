@@ -28,7 +28,7 @@ flowchart TD
     Request[req_007_harden_ingestion_lineage_fit_first] --> Problem[Make the Garmin ingestion pipeline more]
     Problem --> Scope[Harden ingestion lineage FIT-first activit]
     Scope --> Acceptance[AC1: Imported artifacts retain explicit pr]
-    Acceptance --> Tasks[Execution task]
+    Acceptance --> Tasks[task_008_harden_ingestion_lineage_fit_firs]
 ```
 
 # Acceptance criteria
@@ -85,3 +85,4 @@ flowchart TD
 - Keep this backlog item as one bounded delivery slice; create sibling backlog items for the remaining request coverage instead of widening this doc.
 - Request context seeded into this backlog item from `logics\request\req_007_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting.md`.
 - Task `task_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting` was finished via `logics_flow.py finish task` on 2026-04-09.
+- Derived from `logics/request/req_007_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting.md`.

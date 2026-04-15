@@ -64,8 +64,6 @@ flowchart LR
 # References
 - `logics/request/req_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md`
 - `logics/backlog/item_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md`
-- `logics/architecture/adr_000_choose_local_first_garmin_data_sync_and_storage_architecture.md`
-
 # Follow-up work
 - Create the first execution task for implementing extraction, raw storage layout, DuckDB normalization, and deterministic metric computation.
 - Document the first normalized schema and the provenance contract for raw sync artifacts.

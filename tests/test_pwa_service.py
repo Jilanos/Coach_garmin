@@ -66,11 +66,15 @@ class PwaServiceTest(unittest.TestCase):
         self.assertIn("trend", status["analysis"])
         self.assertIn("pace_hr_curve", status["analysis"]["trend"])
         self.assertIn("cadence_daily", status["analysis"]["trend"])
+        self.assertIn("daily_load", status["analysis"]["trend"])
+        self.assertIn("daily_sleep_smoothed", status["analysis"]["trend"])
+        self.assertIn("running_session_types", status["analysis"]["trend"])
         self.assertIn("latest_run", status["import_status"])
         self.assertIn("sync_state", status["import_status"])
         self.assertIn("weekly_volume_km", status["analysis"]["metrics"])
         self.assertIn("cadence_7d", status["analysis"]["metrics"])
         self.assertIn("load_reference_low", status["analysis"]["metrics"])
+        self.assertEqual(status["analysis"]["metrics"]["load_ratio_target"], 1.0)
 
     def test_prepare_coach_questions_returns_clarifications_and_dashboard(self) -> None:
         with TemporaryDirectory() as tmp:

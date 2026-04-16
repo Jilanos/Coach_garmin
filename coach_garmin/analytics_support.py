@@ -1189,10 +1189,12 @@ def compute_metrics(
         _build_pace_hr_curve_diagnostics,
         _build_running_daily_series,
         _build_zone_duration_distribution,
+        _classify_running_session_type,
         _extract_zone_thresholds,
         _is_cycling_type,
         _is_running_type,
         _percentile,
+        _session_type_label,
     )
 
     running_rows = [row for row in activities_rows if _is_running_type(row.get("activity_type"))]
@@ -1210,6 +1212,30 @@ def compute_metrics(
     zone_thresholds = _extract_zone_thresholds(heart_rate_zone_rows)
     zone_distribution_all = _build_zone_duration_distribution(activities_rows, zone_thresholds, lambda activity_type: True)
     zone_distribution_running = _build_zone_duration_distribution(running_rows, zone_thresholds, _is_running_type)
+    running_distances = [float(row.get("distance_meters") or 0.0) for row in running_rows if row.get("distance_meters") is not None]
+    running_durations = [float(row.get("duration_seconds") or 0.0) for row in running_rows if row.get("duration_seconds") is not None]
+    long_distance_threshold = _percentile(running_distances, 0.85) if running_distances else None
+    long_duration_threshold = _percentile(running_durations, 0.85) if running_durations else None
+    running_session_types = []
+    for row in running_rows:
+        session_type = _classify_running_session_type(
+            row,
+            long_distance_threshold=long_distance_threshold,
+            long_duration_threshold=long_duration_threshold,
+            zone_thresholds=zone_thresholds,
+        )
+        running_session_types.append(
+            {
+                "metric_date": row.get("activity_date"),
+                "started_at": row.get("started_at"),
+                "session_type": session_type,
+                "session_label": _session_type_label(session_type),
+                "duration_minutes": round(float(row.get("duration_seconds") or 0.0) / 60.0, 1),
+                "distance_km": round(float(row.get("distance_meters") or 0.0) / 1000.0, 2),
+                "training_load": round(float(row.get("training_load") or 0.0), 1),
+                "average_hr": round(float(row.get("average_hr") or 0.0), 1) if row.get("average_hr") is not None else None,
+            }
+        )
     merged_wellness = _aggregate_wellness(wellness_rows)
     all_dates = sorted(
         set(load_by_day)
@@ -1233,7 +1259,8 @@ def compute_metrics(
         load_7d = round(sum(load_by_day.get(day, 0.0) for day in window_7), 2)
         load_28d = round(sum(load_by_day.get(day, 0.0) for day in window_28), 2)
         previous_7d = round(sum(load_by_day.get(day, 0.0) for day in previous_7), 2)
-        load_ratio = round(load_7d / load_28d, 3) if load_28d else None
+        equivalent_chronic_load = round(load_28d / 4.0, 2) if load_28d else None
+        load_ratio = round(load_7d / equivalent_chronic_load, 3) if equivalent_chronic_load else None
         sleep_hours_7d = trailing_average(
             [
                 merged_wellness[day]["sleep_duration_seconds"] / 3600.0
@@ -1302,6 +1329,7 @@ def compute_metrics(
                 "load_7d": load_7d,
                 "load_28d": load_28d,
                 "load_ratio_7_28": load_ratio,
+                "equivalent_chronic_load_7d": equivalent_chronic_load,
                 "sleep_hours_7d": sleep_hours_7d,
                 "resting_hr_7d": resting_hr_7d,
                 "hrv_7d": hrv_7d,
@@ -1337,8 +1365,8 @@ def compute_metrics(
     running_pace_ref_high = _percentile(running_pace_series, 0.75)
     running_hr_ref_low = _percentile(running_hr_series, 0.25)
     running_hr_ref_high = _percentile(running_hr_series, 0.75)
-    load_ratio_ref_low = _percentile(load_ratio_series, 0.25)
-    load_ratio_ref_high = _percentile(load_ratio_series, 0.75)
+    load_ratio_ref_low = 0.8
+    load_ratio_ref_high = 1.2
     pace_hr_curve = _build_pace_hr_curve(running_rows)
     pace_hr_curve_debug = _build_pace_hr_curve_diagnostics(running_rows, pace_hr_curve)
     cadence_trend = [
@@ -1353,7 +1381,7 @@ def compute_metrics(
         "supported_metrics": {
             "load_7d": "Sum of daily activity training load over the trailing 7 days.",
             "load_28d": "Sum of daily activity training load over the trailing 28 days.",
-            "load_ratio_7_28": "Trailing 7-day load divided by trailing 28-day load.",
+            "load_ratio_7_28": "Trailing 7-day load divided by the equivalent average 7-day load inferred from the trailing 28 days (`load_7d / (load_28d / 4)`).",
             "sleep_hours_7d": "Average recorded sleep duration over the trailing 7 days.",
             "resting_hr_7d": "Average resting heart rate over the trailing 7 days when available.",
             "hrv_7d": "Average HRV over the trailing 7 days when available.",
@@ -1368,10 +1396,13 @@ def compute_metrics(
             "window_days": 90,
             "daily_volume": [],
             "daily_bike_volume": [],
+            "daily_load": [],
             "daily_load_ratio": [],
             "daily_sleep": [],
+            "daily_sleep_smoothed": [],
             "daily_resting_hr": [],
             "daily_hrv": [],
+            "daily_hrv_smoothed": [],
             "daily_running_pace": [],
             "daily_running_hr": [],
             "cadence_daily": cadence_trend,
@@ -1380,6 +1411,7 @@ def compute_metrics(
             "pace_hr_curve_debug": pace_hr_curve_debug,
             "heart_rate_zone_share": zone_distribution_all,
             "heart_rate_zone_share_running": zone_distribution_running,
+            "running_session_types": running_session_types,
             "hrv_daily": [],
         },
         "latest_metrics": latest,
@@ -1399,6 +1431,13 @@ def compute_metrics(
         }
         for row in metrics_rows
     ]
+    report["trend_insights"]["daily_load"] = [
+        {
+            "metric_date": row["metric_date"],
+            "activity_load": row["activity_load"],
+        }
+        for row in metrics_rows
+    ]
     report["trend_insights"]["daily_load_ratio"] = [
         {
             "metric_date": row["metric_date"],
@@ -1413,6 +1452,13 @@ def compute_metrics(
         }
         for row in metrics_rows
     ]
+    report["trend_insights"]["daily_sleep_smoothed"] = [
+        {
+            "metric_date": row["metric_date"],
+            "sleep_hours": row["sleep_hours_7d"],
+        }
+        for row in metrics_rows
+    ]
     report["trend_insights"]["daily_resting_hr"] = [
         {
             "metric_date": row["metric_date"],
@@ -1424,6 +1470,13 @@ def compute_metrics(
         {
             "metric_date": row["metric_date"],
             "hrv_ms": merged_wellness.get(row["metric_date"], {}).get("hrv_ms"),
+        }
+        for row in metrics_rows
+    ]
+    report["trend_insights"]["daily_hrv_smoothed"] = [
+        {
+            "metric_date": row["metric_date"],
+            "hrv_ms": row["hrv_7d"],
         }
         for row in metrics_rows
     ]
@@ -1457,6 +1510,7 @@ def compute_metrics(
             "running_hr_reference_high": running_hr_ref_high,
             "load_ratio_reference_low": load_ratio_ref_low,
             "load_ratio_reference_high": load_ratio_ref_high,
+            "load_ratio_target": 1.0,
             "cadence_7d": cadence_latest,
             "cadence_28d": latest.get("cadence_28d"),
             "cadence_reference_low": cadence_ref_low,
@@ -1468,6 +1522,12 @@ def compute_metrics(
             "pace_hr_curve_debug": pace_hr_curve_debug,
             "heart_rate_zone_share": zone_distribution_all,
             "heart_rate_zone_share_running": zone_distribution_running,
+            "running_session_types": running_session_types,
+            "running_session_type_reference": {
+                "long_distance_threshold_m": long_distance_threshold,
+                "long_duration_threshold_s": long_duration_threshold,
+                "quality_hr_floor": zone_thresholds.get("zone3_floor") if isinstance(zone_thresholds, dict) else None,
+            },
         }
     )
     return metrics_rows, report

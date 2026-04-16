@@ -200,6 +200,7 @@ def build_workspace_status(
         "load_reference_high": latest_metrics.get("load_reference_high"),
         "load_ratio_reference_low": latest_metrics.get("load_ratio_reference_low"),
         "load_ratio_reference_high": latest_metrics.get("load_ratio_reference_high"),
+        "load_ratio_target": latest_metrics.get("load_ratio_target", 1.0),
         "progression_delta": latest_metrics.get("progression_delta"),
         "sleep_hours_7d": latest_metrics.get("sleep_hours_7d"),
         "sleep_reference_low": latest_metrics.get("sleep_reference_low"),
@@ -241,6 +242,8 @@ def build_workspace_status(
         "pace_hr_curve_debug": latest_metrics.get("pace_hr_curve_debug"),
         "heart_rate_zone_share": latest_metrics.get("heart_rate_zone_share"),
         "heart_rate_zone_share_running": latest_metrics.get("heart_rate_zone_share_running"),
+        "running_session_types": latest_metrics.get("running_session_types"),
+        "running_session_type_reference": latest_metrics.get("running_session_type_reference"),
     }
     import_state = {
         "available": bool(metrics.get("db_available", False)),

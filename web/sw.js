@@ -1,11 +1,11 @@
-﻿const CACHE_NAME = "coach-garmin-pwa-v11";
+﻿const CACHE_NAME = "coach-garmin-pwa-v12";
 const ASSETS = [
-  "/?v=20260415-navfix29",
-  "/index.html?v=20260415-navfix29",
-  "/styles.css?v=20260415-navfix29",
-  "/app.js?v=20260415-navfix29",
-  "/manifest.webmanifest?v=20260415-navfix29",
-  "/icon.svg?v=20260415-navfix29",
+  "/?v=20260416-navfix30",
+  "/index.html?v=20260416-navfix30",
+  "/styles.css?v=20260416-navfix30",
+  "/app.js?v=20260416-navfix30",
+  "/manifest.webmanifest?v=20260416-navfix30",
+  "/icon.svg?v=20260416-navfix30",
 ];
 
 self.addEventListener("install", (event) => {
@@ -33,7 +33,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => response)
-        .catch(() => caches.match("/index.html?v=20260415-navfix29").then((cached) => cached || caches.match("/index.html"))),
+        .catch(() => caches.match("/index.html?v=20260416-navfix30").then((cached) => cached || caches.match("/index.html"))),
     );
     return;
   }
@@ -50,10 +50,11 @@ self.addEventListener("fetch", (event) => {
           }
           return response;
         })
-        .catch(() => caches.match("/index.html?v=20260415-navfix29").then((cachedDoc) => cachedDoc || caches.match("/index.html")));
+        .catch(() => caches.match("/index.html?v=20260416-navfix30").then((cachedDoc) => cachedDoc || caches.match("/index.html")));
     }),
   );
 });
+
 
 
 

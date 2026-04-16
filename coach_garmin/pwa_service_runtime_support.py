@@ -12,7 +12,10 @@ from coach_garmin.analytics import (
     _build_cadence_daily_series,
     _build_pace_hr_curve,
     _build_pace_hr_curve_diagnostics,
+    _classify_running_session_type,
     _extract_running_cadence_spm,
+    _percentile,
+    _session_type_label,
 )
 from coach_garmin.coach_chat import CoachChatSession
 from coach_garmin.coach_llm import CoachLLMConfig, build_coach_client
@@ -207,23 +210,27 @@ def _read_boot_trace(data_dir: Path, limit: int = 50) -> list[dict[str, Any]]:
 def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
     db_path = data_dir / "normalized" / "coach_garmin.duckdb"
     if not db_path.exists():
-        return {
-            "window_days": days,
-            "daily_volume": [],
-            "daily_bike_volume": [],
-            "daily_load_ratio": [],
-            "daily_sleep": [],
-            "daily_resting_hr": [],
-            "daily_hrv": [],
-            "daily_running_pace": [],
-            "daily_running_hr": [],
-            "cadence_daily": [],
-            "cadence_diagnostics": {"activities": [], "summary": {}},
-            "pace_hr_sessions": [],
-            "heart_rate_zone_share": {"distribution": []},
-            "heart_rate_zone_share_running": {"distribution": []},
-            "pace_hr_curve_debug": {},
-        }
+            return {
+                "window_days": days,
+                "daily_volume": [],
+                "daily_bike_volume": [],
+                "daily_load": [],
+                "daily_load_ratio": [],
+                "daily_sleep": [],
+                "daily_sleep_smoothed": [],
+                "daily_resting_hr": [],
+                "daily_hrv": [],
+                "daily_hrv_smoothed": [],
+                "daily_running_pace": [],
+                "daily_running_hr": [],
+                "cadence_daily": [],
+                "cadence_diagnostics": {"activities": [], "summary": {}},
+                "pace_hr_sessions": [],
+                "heart_rate_zone_share": {"distribution": []},
+                "heart_rate_zone_share_running": {"distribution": []},
+                "pace_hr_curve_debug": {},
+                "running_session_types": [],
+            }
 
     con = duckdb.connect(str(db_path), read_only=True)
     try:
@@ -234,10 +241,13 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
                 "window_days": days,
                 "daily_volume": [],
                 "daily_bike_volume": [],
+                "daily_load": [],
                 "daily_load_ratio": [],
                 "daily_sleep": [],
+                "daily_sleep_smoothed": [],
                 "daily_resting_hr": [],
                 "daily_hrv": [],
+                "daily_hrv_smoothed": [],
                 "daily_running_pace": [],
                 "daily_running_hr": [],
                 "cadence_daily": [],
@@ -246,6 +256,7 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
                 "heart_rate_zone_share": {"distribution": []},
                 "heart_rate_zone_share_running": {"distribution": []},
                 "pace_hr_curve_debug": {},
+                "running_session_types": [],
             }
 
         latest_date = _coerce_date(latest_day)
@@ -266,7 +277,7 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         ).fetchall()
         load_rows = con.execute(
             """
-            SELECT metric_date, load_7d, load_ratio_7_28
+            SELECT metric_date, activity_load, load_7d, load_ratio_7_28, sleep_hours_7d, hrv_7d
             FROM derived_daily_metrics
             WHERE metric_date >= ?
             ORDER BY metric_date
@@ -288,7 +299,7 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         ).fetchall()
         pace_rows = con.execute(
             """
-            SELECT activity_date, activity_type, duration_seconds, distance_meters, average_hr, raw_payload
+            SELECT activity_date, started_at, activity_type, duration_seconds, distance_meters, average_hr, training_load, raw_payload
             FROM activities
             WHERE activity_date >= ?
             ORDER BY activity_date DESC, started_at DESC
@@ -305,18 +316,18 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
     finally:
         con.close()
 
-    running_rows = [row for row in pace_rows if _is_running_type(row[1])]
+    running_rows = [row for row in pace_rows if _is_running_type(row[2])]
     summary_rows = running_rows if running_rows else pace_rows
     cadence_daily_rows = _build_cadence_daily_series(
         [
             {
-                "activity_type": row[1],
-                "raw_payload": row[5],
+                "activity_type": row[2],
+                "raw_payload": row[7],
                 "activity_date": row[0],
-                "duration_seconds": row[2],
+                "duration_seconds": row[3],
             }
             for row in pace_rows
-            if _is_running_type(row[1])
+            if _is_running_type(row[2])
         ]
     )
     cadence_trend = [
@@ -370,10 +381,10 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         total_seconds = 0.0
         source_count = 0
         for row in rows:
-            if not predicate(row[1]):
+            if not predicate(row[2]):
                 continue
-            duration_seconds = float(row[2] or 0.0)
-            avg_hr = float(row[4]) if row[4] is not None else None
+            duration_seconds = float(row[3] or 0.0)
+            avg_hr = float(row[5]) if row[5] is not None else None
             zone = _zone_for_hr(avg_hr)
             if duration_seconds <= 0 or zone is None:
                 continue
@@ -413,12 +424,20 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         for row in volume_rows
     ]
     daily_load_ratio = [
-        {"date": str(row[0]), "load_7d": row[1], "load_ratio_7_28": row[2]}
+        {"date": str(row[0]), "activity_load": row[1], "load_7d": row[2], "load_ratio_7_28": row[3]}
+        for row in load_rows
+    ]
+    daily_load = [
+        {"date": str(row[0]), "activity_load": round(float(row[1] or 0.0), 2)}
         for row in load_rows
     ]
     daily_sleep = [
         {"date": str(row[0]), "sleep_hours": round(float(row[1]) / 3600.0, 2) if row[1] is not None else None}
         for row in wellness_rows
+    ]
+    daily_sleep_smoothed = [
+        {"date": str(row[0]), "sleep_hours": round(float(row[4]), 2) if row[4] is not None else None}
+        for row in load_rows
     ]
     daily_resting_hr = [
         {"date": str(row[0]), "resting_hr": round(float(row[2]), 1) if row[2] is not None else None}
@@ -427,6 +446,10 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
     daily_hrv = [
         {"date": str(row[0]), "hrv_ms": round(float(row[3]), 1) if row[3] is not None else None}
         for row in wellness_rows
+    ]
+    daily_hrv_smoothed = [
+        {"date": str(row[0]), "hrv_ms": round(float(row[5]), 1) if row[5] is not None else None}
+        for row in load_rows
     ]
     daily_bike_volume = [
         {
@@ -440,12 +463,12 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
     pace_by_day: dict[str, list[tuple[float, float]]] = {}
     hr_by_day: dict[str, list[tuple[float, float]]] = {}
     for row in pace_rows:
-      if not _is_running_type(row[1]):
+      if not _is_running_type(row[2]):
         continue
       activity_date = str(row[0]) if row[0] is not None else None
-      duration_seconds = float(row[2] or 0.0)
-      distance_meters = float(row[3] or 0.0)
-      avg_hr = float(row[4]) if row[4] is not None else None
+      duration_seconds = float(row[3] or 0.0)
+      distance_meters = float(row[4] or 0.0)
+      avg_hr = float(row[5]) if row[5] is not None else None
       if activity_date and duration_seconds > 0 and distance_meters > 0:
         pace = _pace_min_per_km(duration_seconds / 60.0, distance_meters / 1000.0)
         if pace is not None:
@@ -462,18 +485,56 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         daily_running_hr.append({"date": metric_date, "heart_rate": round(sum(value * weight for value, weight in samples) / total_weight, 1)})
     zone_distribution_all = _zone_distribution(pace_rows, lambda activity_type: True)
     zone_distribution_running = _zone_distribution(pace_rows, _is_running_type)
+    running_distances = [float(row[4] or 0.0) for row in running_rows if row[4] is not None]
+    running_durations = [float(row[3] or 0.0) for row in running_rows if row[3] is not None]
+    long_distance_threshold = _percentile(running_distances, 0.85) if running_distances else None
+    long_duration_threshold = _percentile(running_durations, 0.85) if running_durations else None
+    zone_thresholds = {
+        "zone3_floor": zone_floors[2] if len(zone_floors) > 2 else None,
+        "zone4_floor": zone_floors[3] if len(zone_floors) > 3 else None,
+    }
+    running_session_types = []
+    for row in running_rows:
+        activity = {
+            "activity_date": row[0],
+            "started_at": row[1],
+            "activity_type": row[2],
+            "duration_seconds": row[3],
+            "distance_meters": row[4],
+            "average_hr": row[5],
+            "training_load": row[6],
+            "raw_payload": row[7],
+        }
+        session_type = _classify_running_session_type(
+            activity,
+            long_distance_threshold=long_distance_threshold,
+            long_duration_threshold=long_duration_threshold,
+            zone_thresholds=zone_thresholds,
+        )
+        running_session_types.append(
+            {
+                "metric_date": str(row[0]) if row[0] is not None else None,
+                "started_at": str(row[1]) if row[1] is not None else None,
+                "session_type": session_type,
+                "session_label": _session_type_label(session_type),
+                "duration_minutes": round(float(row[3] or 0.0) / 60.0, 1),
+                "distance_km": round(float(row[4] or 0.0) / 1000.0, 2),
+                "training_load": round(float(row[6] or 0.0), 1),
+                "average_hr": round(float(row[5]), 1) if row[5] is not None else None,
+            }
+        )
     cadence_activity_diagnostics = []
     cadence_activity_values = []
     for row in running_rows:
-        payload = repair_text_tree(json.loads(row[5])) if row[5] else {}
+        payload = repair_text_tree(json.loads(row[7])) if row[7] else {}
         cadence_spm = _extract_running_cadence_spm(payload) if isinstance(payload, dict) else None
         if cadence_spm is not None:
             cadence_activity_values.append(float(cadence_spm))
         cadence_activity_diagnostics.append(
             {
                 "metric_date": str(row[0]) if row[0] is not None else None,
-                "activity_type": row[1],
-                "duration_seconds": round(float(row[2] or 0.0), 1),
+                "activity_type": row[2],
+                "duration_seconds": round(float(row[3] or 0.0), 1),
                 "raw_source_value": payload.get("averageRunCadence")
                 or payload.get("averageRunningCadenceInStepsPerMinute")
                 or payload.get("averageCadence")
@@ -494,43 +555,46 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
     )
     pace_hr_curve_input = [
         {
-            "pace_min_per_km": _pace_min_per_km((row[2] or 0.0) / 60.0, (row[3] or 0.0) / 1000.0),
-            "heart_rate": float(row[4]) if row[4] is not None else None,
+            "pace_min_per_km": _pace_min_per_km((row[3] or 0.0) / 60.0, (row[4] or 0.0) / 1000.0),
+            "heart_rate": float(row[5]) if row[5] is not None else None,
             "cadence_spm": next(
                 (
                     entry["normalized_value"]
                     for entry in cadence_activity_diagnostics
                     if entry.get("metric_date") == (str(row[0]) if row[0] is not None else None)
-                    and entry.get("duration_seconds") == round(float(row[2] or 0.0), 1)
+                    and entry.get("duration_seconds") == round(float(row[3] or 0.0), 1)
                 ),
                 None,
             ),
-            "weight": max(float(row[2] or 0.0), 90.0),
+            "weight": max(float(row[3] or 0.0), 90.0),
             "point_count": 1,
         }
         for row in running_rows
-        if (row[2] or 0.0) > 0 and (row[3] or 0.0) > 0 and row[4] is not None
+        if (row[3] or 0.0) > 0 and (row[4] or 0.0) > 0 and row[5] is not None
     ]
     pace_hr_curve = _build_pace_hr_curve(pace_hr_curve_input)
     pace_hr_curve_debug = _build_pace_hr_curve_diagnostics(pace_hr_curve_input, pace_hr_curve)
     pace_hr_sessions = [
         {
             "date": str(row[0]),
-            "distance_km": round((row[3] or 0.0) / 1000.0, 2),
-            "pace_min_per_km": _pace_min_per_km((row[2] or 0.0) / 60.0, (row[3] or 0.0) / 1000.0),
-            "average_hr": round(float(row[4]), 1) if row[4] is not None else None,
+            "distance_km": round((row[4] or 0.0) / 1000.0, 2),
+            "pace_min_per_km": _pace_min_per_km((row[3] or 0.0) / 60.0, (row[4] or 0.0) / 1000.0),
+            "average_hr": round(float(row[5]), 1) if row[5] is not None else None,
         }
         for row in reversed(summary_rows[:8])
-        if (row[2] or 0.0) > 0 and (row[3] or 0.0) > 0
+        if (row[3] or 0.0) > 0 and (row[4] or 0.0) > 0
     ]
     return repair_text_tree({
         "window_days": days,
         "daily_volume": daily_volume,
         "daily_bike_volume": daily_bike_volume,
+        "daily_load": daily_load,
         "daily_load_ratio": daily_load_ratio,
         "daily_sleep": daily_sleep,
+        "daily_sleep_smoothed": daily_sleep_smoothed,
         "daily_resting_hr": daily_resting_hr,
         "daily_hrv": daily_hrv,
+        "daily_hrv_smoothed": daily_hrv_smoothed,
         "daily_running_pace": daily_running_pace,
         "daily_running_hr": daily_running_hr,
         "cadence_daily": cadence_trend,
@@ -548,6 +612,7 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         "pace_hr_curve_debug": pace_hr_curve_debug,
         "heart_rate_zone_share": zone_distribution_all,
         "heart_rate_zone_share_running": zone_distribution_running,
+        "running_session_types": running_session_types,
     })
 
 

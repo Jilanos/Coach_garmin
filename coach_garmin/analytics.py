@@ -45,3 +45,5 @@ _extract_zone_thresholds = _series._extract_zone_thresholds
 _is_cycling_type = _series._is_cycling_type
 _is_running_type = _series._is_running_type
 _percentile = _series._percentile
+_classify_running_session_type = _series._classify_running_session_type
+_session_type_label = _series._session_type_label

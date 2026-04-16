@@ -144,6 +144,63 @@ def _is_strength_type(activity_type: str | None) -> bool:
     }
 
 
+def _session_type_label(session_type: str | None) -> str:
+    mapping = {
+        "easy_jog": "Jogg facile",
+        "quality": "Qualité",
+        "long_run": "Sortie longue",
+    }
+    return mapping.get(str(session_type or ""), "Non classée")
+
+
+def _classify_running_session_type(
+    activity_row: dict[str, Any],
+    *,
+    long_distance_threshold: float | None = None,
+    long_duration_threshold: float | None = None,
+    zone_thresholds: dict[str, Any] | None = None,
+) -> str:
+    if not _is_running_type(activity_row.get("activity_type")):
+        return "other"
+    duration_seconds = _parse_float(activity_row.get("duration_seconds")) or 0.0
+    distance_meters = _parse_float(activity_row.get("distance_meters")) or 0.0
+    training_load = _parse_float(activity_row.get("training_load")) or 0.0
+    average_hr = _parse_float(activity_row.get("average_hr"))
+    payload = _safe_json_loads(activity_row.get("raw_payload"))
+
+    long_distance_gate = max(float(long_distance_threshold or 0.0), 12_000.0)
+    long_duration_gate = max(float(long_duration_threshold or 0.0), 4_200.0)
+    if distance_meters >= long_distance_gate or duration_seconds >= long_duration_gate:
+        return "long_run"
+
+    explicit_quality = False
+    if isinstance(payload, dict):
+        split_count = 0
+        for key in ("splitSummaries", "splits", "lapDTOs", "activitySplits", "laps"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                split_count = max(split_count, len(value))
+        explicit_quality = bool(
+            split_count >= 4
+            or payload.get("workoutName")
+            or payload.get("workoutId")
+            or payload.get("workoutStepId")
+            or payload.get("workout")
+        )
+
+    quality_floor = None
+    if isinstance(zone_thresholds, dict):
+        quality_floor = _parse_float(zone_thresholds.get("zone3_floor")) or _parse_float(zone_thresholds.get("zone4_floor"))
+    load_per_hour = (training_load / (duration_seconds / 3600.0)) if duration_seconds > 0 else None
+    if explicit_quality:
+        return "quality"
+    if quality_floor is not None and average_hr is not None and average_hr >= quality_floor:
+        return "quality"
+    if load_per_hour is not None and load_per_hour >= 45:
+        return "quality"
+    return "easy_jog"
+
+
 def _activity_curve_points(activity_row: dict[str, Any]) -> list[dict[str, Any]]:
     payload = _safe_json_loads(activity_row.get("raw_payload"))
     if not payload:

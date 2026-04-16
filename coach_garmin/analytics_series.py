@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from coach_garmin.analytics import (
+from coach_garmin.analytics_support import (
     _first,
     _pace_min_per_km,
     _parse_float,

@@ -36,6 +36,12 @@ def _sync_support_globals() -> None:
     _support.import_garmin_export = import_garmin_export
     _support.sync_garmin_connect = sync_garmin_connect
     _support.recalculate_workspace = recalculate_workspace
+    _support._runtime.build_workspace_status = build_workspace_status
+    _support._runtime.prepare_coach_questions = prepare_coach_questions
+    _support._runtime.generate_coach_plan = generate_coach_plan
+    _support._runtime.import_garmin_export = import_garmin_export
+    _support._runtime.sync_garmin_connect = sync_garmin_connect
+    _support._runtime.recalculate_workspace = recalculate_workspace
 
 
 def build_workspace_status(*args, **kwargs):

@@ -1,9 +1,9 @@
 ## req_011_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings - Sidebar-led PWA workspace for import, dashboard, coach, terminal, and settings
-> From version: 0.1.0
+> From version: 20260416-cleanup21
 > Schema version: 1.0
 > Status: Done
-> Understanding: 96
-> Confidence: 93
+> Understanding: 97
+> Confidence: 94
 > Progress: 100
 > Complexity: High
 > Theme: UI
@@ -55,9 +55,12 @@ The intended layout is:
 %% logics-kind: request
 %% logics-signature: request|sidebar-led-pwa-workspace-for-import-das|describe-the-need|ac1-the-app-shows-a-left
 flowchart TD
-    Trigger[Sidebar-led PWA workspace for import dashb] --> Need[Describe the need]
-    Need --> Outcome[AC1: The app shows a left]
-    Outcome --> Backlog[Backlog slice]
+    Trigger[Sidebar-led PWA workspace redesign] --> Need[Restructure the PWA around a clear workspace layout]
+    Need --> Sidebar[Stable sidebar navigation]
+    Need --> Workspace[Large main workspace with focused sections]
+    Sidebar --> Outcome[AC1: The PWA exposes a stable left sidebar]
+    Workspace --> Outcome
+    Outcome --> Backlog[Execution backlog]
 ```
 
 # Scope

@@ -1,9 +1,10 @@
 ## req_014_scientific_dashboard_charts_and_sport_specific_volume_filtering - Legacy precursor to scientific charts and sport-specific filtering
-> From version: 0.0.0
+> From version: 20260416-cleanup21
 > Schema version: 1.0
 > Status: Archived
-> Understanding: 90%
-> Confidence: 85%
+> Understanding: 95%
+> Confidence: 92%
+> Progress: 100%
 > Complexity: Medium
 > Theme: General
 > Reminder: This request is a legacy precursor. Keep it as a traceability stub only and route new work through req_015 and item_015.
@@ -24,9 +25,10 @@ It has now been superseded by the more complete request/backlog/task chain:
 %% logics-kind: request
 %% logics-signature: request|legacy-precursor-to-scientific-charts-an|describe-the-need|ac1-define-a-measurable-outcome
 flowchart TD
-    Trigger[Legacy precursor to scientific charts and] --> Need[Describe the need]
-    Need --> Outcome[AC1: Define a measurable outcome]
-    Outcome --> Backlog[Backlog slice]
+    Trigger[Legacy precursor request] --> Need[Retain historical traceability for the original chart idea]
+    Need --> Superseded[Point all new work to req_015]
+    Superseded --> Outcome[AC1: The stub clearly redirects future work]
+    Outcome --> Archive[Traceability stub only]
 ```
 
 # Companion docs

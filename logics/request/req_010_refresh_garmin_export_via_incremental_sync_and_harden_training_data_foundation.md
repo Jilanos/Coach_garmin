@@ -1,10 +1,10 @@
 ## req_010_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation - Refresh Garmin export via incremental sync and harden training data foundation
-> From version: 0.1.0
+> From version: 20260416-cleanup21
 > Schema version: 1.0
 > Status: Done
-> Understanding: 96
-> Confidence: 93
-> Progress: 0
+> Understanding: 97
+> Confidence: 94
+> Progress: 100
 > Complexity: High
 > Theme: Health
 > Reminder: Update status/understanding/confidence/progress and dependencies/references when you edit this doc.
@@ -52,9 +52,12 @@ This request is informed by the earlier research on similar projects and by the 
 %% logics-kind: request
 %% logics-signature: request|refresh-garmin-export-via-incremental-sy|describe-the-need|ac1-the-project-can-ingest-a
 flowchart TD
-    Trigger[Refresh Garmin export via incremental sync] --> Need[Describe the need]
-    Need --> Outcome[AC1: The project can ingest a]
-    Outcome --> Backlog[Backlog slice]
+    Trigger[Refresh Garmin export via incremental sync] --> Need[Keep the Garmin data foundation fresh and robust]
+    Need --> Baseline[Preserve the ZIP export as the stable baseline]
+    Need --> Refresh[Add incremental refreshes and stronger training signals]
+    Baseline --> Outcome[AC1: A local Garmin ZIP export remains the trusted baseline]
+    Refresh --> Outcome
+    Outcome --> Backlog[Execution backlog]
 ```
 
 # Scope

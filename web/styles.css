@@ -917,7 +917,7 @@ textarea:focus {
 
 .zone-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -934,10 +934,31 @@ textarea:focus {
   gap: 14px;
 }
 
+.zone-switch {
+  display: inline-flex;
+  gap: 8px;
+  justify-self: center;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.zone-mode-button {
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+}
+
+.zone-mode-button.active {
+  color: var(--text);
+  border-color: rgba(138, 230, 192, 0.34);
+  background: rgba(138, 230, 192, 0.12);
+}
+
 .zone-chart .zone-comparison-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  display: block;
 }
 
 .zone-donut {

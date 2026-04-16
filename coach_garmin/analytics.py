@@ -40,6 +40,7 @@ _build_pace_hr_curve = _series._build_pace_hr_curve
 _build_pace_hr_curve_diagnostics = _series._build_pace_hr_curve_diagnostics
 _build_running_daily_series = _series._build_running_daily_series
 _build_zone_duration_distribution = _series._build_zone_duration_distribution
+_extract_running_cadence_spm = _series._extract_running_cadence_spm
 _extract_zone_thresholds = _series._extract_zone_thresholds
 _is_cycling_type = _series._is_cycling_type
 _is_running_type = _series._is_running_type

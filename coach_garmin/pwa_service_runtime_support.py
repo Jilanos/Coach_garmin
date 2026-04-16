@@ -8,7 +8,12 @@ from typing import Any
 
 import duckdb
 
-from coach_garmin.analytics import _build_cadence_daily_series, _build_pace_hr_curve, _build_pace_hr_curve_diagnostics
+from coach_garmin.analytics import (
+    _build_cadence_daily_series,
+    _build_pace_hr_curve,
+    _build_pace_hr_curve_diagnostics,
+    _extract_running_cadence_spm,
+)
 from coach_garmin.coach_chat import CoachChatSession
 from coach_garmin.coach_llm import CoachLLMConfig, build_coach_client
 from coach_garmin.coach_tools import LocalCoachToolkit
@@ -213,6 +218,7 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
             "daily_running_pace": [],
             "daily_running_hr": [],
             "cadence_daily": [],
+            "cadence_diagnostics": {"activities": [], "summary": {}},
             "pace_hr_sessions": [],
             "heart_rate_zone_share": {"distribution": []},
             "heart_rate_zone_share_running": {"distribution": []},
@@ -235,6 +241,7 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
                 "daily_running_pace": [],
                 "daily_running_hr": [],
                 "cadence_daily": [],
+                "cadence_diagnostics": {"activities": [], "summary": {}},
                 "pace_hr_sessions": [],
                 "heart_rate_zone_share": {"distribution": []},
                 "heart_rate_zone_share_running": {"distribution": []},
@@ -259,9 +266,22 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         ).fetchall()
         load_rows = con.execute(
             """
-            SELECT metric_date, load_7d, load_ratio_7_28, sleep_hours_7d, resting_hr_7d, hrv_7d
+            SELECT metric_date, load_7d, load_ratio_7_28
             FROM derived_daily_metrics
             WHERE metric_date >= ?
+            ORDER BY metric_date
+            """,
+            [window_start.isoformat()],
+        ).fetchall()
+        wellness_rows = con.execute(
+            """
+            SELECT metric_date,
+                   AVG(sleep_duration_seconds),
+                   AVG(resting_hr),
+                   AVG(hrv_ms)
+            FROM wellness_daily
+            WHERE metric_date >= ?
+            GROUP BY metric_date
             ORDER BY metric_date
             """,
             [window_start.isoformat()],
@@ -272,7 +292,6 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
             FROM activities
             WHERE activity_date >= ?
             ORDER BY activity_date DESC, started_at DESC
-            LIMIT 12
             """,
             [window_start.isoformat()],
         ).fetchall()
@@ -307,6 +326,20 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
     zone_row = zone_rows[0] if zone_rows else None
     max_hr = float(zone_row[0]) if zone_row and zone_row[0] is not None else None
     zone_floors = [zone_row[index] if zone_row and len(zone_row) > index and zone_row[index] is not None else None for index in range(1, 6)]
+
+    def _zone_bpm_bounds(index: int) -> str:
+        floor = zone_floors[index - 1] if len(zone_floors) >= index else None
+        next_floor = zone_floors[index] if len(zone_floors) > index else None
+        floor_value = int(round(float(floor))) if floor is not None else None
+        next_value = int(round(float(next_floor))) if next_floor is not None else None
+        if index == 1:
+            return f"< {next_value} bpm" if next_value is not None else "< 130 bpm"
+        if index == 5:
+            return f">= {floor_value} bpm" if floor_value is not None else ">= 175 bpm"
+        if floor_value is not None and next_value is not None:
+            return f"{floor_value}-{next_value - 1} bpm"
+        return "bpm non défini"
+
     def _zone_for_hr(value: float | None) -> int | None:
         if value is None:
             return None
@@ -351,8 +384,25 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         for index in range(1, 6):
             seconds = zone_seconds[f"zone_{index}"]
             share = (seconds / total_seconds) if total_seconds else None
-            distribution.append({"zone": index, "seconds": round(seconds, 1), "minutes": round(seconds / 60.0, 1), "share": round(share, 3) if share is not None else None})
-        return {"distribution": distribution, "total_seconds": round(total_seconds, 1), "source_count": source_count, "method": "Approximate activity-duration weighting by average HR"}
+            distribution.append(
+                {
+                    "zone": index,
+                    "seconds": round(seconds, 1),
+                    "minutes": round(seconds / 60.0, 1),
+                    "share": round(share, 3) if share is not None else None,
+                    "bpm_range": _zone_bpm_bounds(index),
+                }
+            )
+        return {
+            "distribution": distribution,
+            "total_seconds": round(total_seconds, 1),
+            "source_count": source_count,
+            "method": "Approximate activity-duration weighting by average HR",
+            "thresholds": {
+                "max_hr": round(max_hr, 1) if max_hr is not None else None,
+                "zone_floors": [round(float(value), 1) if value is not None else None for value in zone_floors],
+            },
+        }
     daily_volume = [
         {
             "date": str(row[0]),
@@ -367,16 +417,16 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         for row in load_rows
     ]
     daily_sleep = [
-        {"date": str(row[0]), "sleep_hours": row[3]}
-        for row in load_rows
+        {"date": str(row[0]), "sleep_hours": round(float(row[1]) / 3600.0, 2) if row[1] is not None else None}
+        for row in wellness_rows
     ]
     daily_resting_hr = [
-        {"date": str(row[0]), "resting_hr": row[4]}
-        for row in load_rows
+        {"date": str(row[0]), "resting_hr": round(float(row[2]), 1) if row[2] is not None else None}
+        for row in wellness_rows
     ]
     daily_hrv = [
-        {"date": str(row[0]), "hrv_ms": row[5]}
-        for row in load_rows
+        {"date": str(row[0]), "hrv_ms": round(float(row[3]), 1) if row[3] is not None else None}
+        for row in wellness_rows
     ]
     daily_bike_volume = [
         {
@@ -412,11 +462,49 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         daily_running_hr.append({"date": metric_date, "heart_rate": round(sum(value * weight for value, weight in samples) / total_weight, 1)})
     zone_distribution_all = _zone_distribution(pace_rows, lambda activity_type: True)
     zone_distribution_running = _zone_distribution(pace_rows, _is_running_type)
+    cadence_activity_diagnostics = []
+    cadence_activity_values = []
+    for row in running_rows:
+        payload = repair_text_tree(json.loads(row[5])) if row[5] else {}
+        cadence_spm = _extract_running_cadence_spm(payload) if isinstance(payload, dict) else None
+        if cadence_spm is not None:
+            cadence_activity_values.append(float(cadence_spm))
+        cadence_activity_diagnostics.append(
+            {
+                "metric_date": str(row[0]) if row[0] is not None else None,
+                "activity_type": row[1],
+                "duration_seconds": round(float(row[2] or 0.0), 1),
+                "raw_source_value": payload.get("averageRunCadence")
+                or payload.get("averageRunningCadenceInStepsPerMinute")
+                or payload.get("averageCadence")
+                or payload.get("cadence"),
+                "normalized_value": round(float(cadence_spm), 1) if cadence_spm is not None else None,
+                "detected_unit": "spm"
+                if cadence_spm is not None
+                else ("unknown" if payload else "missing_payload"),
+            }
+        )
+    cadence_plot_bounds = (
+        {
+            "min": round(min(cadence_activity_values), 1),
+            "max": round(max(cadence_activity_values), 1),
+        }
+        if cadence_activity_values
+        else {"min": None, "max": None}
+    )
     pace_hr_curve_input = [
         {
             "pace_min_per_km": _pace_min_per_km((row[2] or 0.0) / 60.0, (row[3] or 0.0) / 1000.0),
             "heart_rate": float(row[4]) if row[4] is not None else None,
-            "cadence_spm": None,
+            "cadence_spm": next(
+                (
+                    entry["normalized_value"]
+                    for entry in cadence_activity_diagnostics
+                    if entry.get("metric_date") == (str(row[0]) if row[0] is not None else None)
+                    and entry.get("duration_seconds") == round(float(row[2] or 0.0), 1)
+                ),
+                None,
+            ),
             "weight": max(float(row[2] or 0.0), 90.0),
             "point_count": 1,
         }
@@ -446,6 +534,15 @@ def _build_trend_series(data_dir: Path, days: int = 90) -> dict[str, Any]:
         "daily_running_pace": daily_running_pace,
         "daily_running_hr": daily_running_hr,
         "cadence_daily": cadence_trend,
+        "cadence_diagnostics": {
+            "activities": cadence_activity_diagnostics,
+            "summary": {
+                "activity_count": len(cadence_activity_diagnostics),
+                "plotted_point_count": len(cadence_trend),
+                "unit": "spm",
+                "plot_bounds": cadence_plot_bounds,
+            },
+        },
         "pace_hr_sessions": pace_hr_sessions,
         "pace_hr_curve": pace_hr_curve,
         "pace_hr_curve_debug": pace_hr_curve_debug,

@@ -215,6 +215,7 @@ def build_workspace_status(
         "cadence_reference_low": cadence_fallback_low if cadence_metric_suspect else latest_metrics.get("cadence_reference_low"),
         "cadence_reference_high": cadence_fallback_high if cadence_metric_suspect else latest_metrics.get("cadence_reference_high"),
         "cadence_target_spm": latest_metrics.get("cadence_target_spm", 170),
+        "cadence_diagnostics": trend_series.get("cadence_diagnostics") if isinstance(trend_series, dict) else None,
         "fatigue_flag": latest_metrics.get("fatigue_flag"),
         "overreaching_flag": latest_metrics.get("overreaching_flag"),
         "training_phase": analysis.get("training_phase"),

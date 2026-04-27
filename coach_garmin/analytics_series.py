@@ -422,11 +422,11 @@ def _build_pace_hr_curve_diagnostics(points: list[dict[str, Any]], curve: list[d
         if len(valid_points) < 3:
             reasons.append("Il faut au moins 3 sorties running stables avec allure et FC exploitables.")
         if summary["missing_pace_or_hr"]:
-            reasons.append(f"{summary['missing_pace_or_hr']} activitÃ©(s) running n'ont pas d'allure ou de FC exploitable.")
+            reasons.append(f"{summary['missing_pace_or_hr']} activité(s) running n'ont pas d'allure ou de FC exploitable.")
         if summary["missing_cadence"]:
-            reasons.append(f"{summary['missing_cadence']} activitÃ©(s) running n'ont pas de cadence exploitable.")
-        reasons.append("Les Ã©chauffements, retours au calme et fractionnÃ©s trop courts sont sous-pondÃ©rÃ©s ou exclus.")
-        reasons.append("Une activitÃ© doit durer au moins 10 min et 2 km environ pour peser dans la courbe.")
+            reasons.append(f"{summary['missing_cadence']} activité(s) running n'ont pas de cadence exploitable.")
+        reasons.append("Les échauffements, retours au calme et fractionnés trop courts sont sous-pondérés ou exclus.")
+        reasons.append("Une activité doit durer au moins 10 min et 2 km environ pour peser dans la courbe.")
         summary["blocking_reasons"] = reasons
     else:
         summary["blocking_reasons"] = []

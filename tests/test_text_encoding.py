@@ -51,6 +51,26 @@ class TextEncodingTest(unittest.TestCase):
         self.assertIn("Cache purgé", html)
         self.assertIn("après ça", html)
 
+    def test_active_source_files_do_not_contain_raw_mojibake(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        source_roots = [root / "coach_garmin", root / "web"]
+        excluded_files = {
+            root / "coach_garmin" / "text_encoding.py",
+            Path(__file__).resolve(),
+        }
+        markers = ("Ãƒ", "Ã‚", "Ã©", "Ã¨", "Ãª", "Ã§", "Ã ", "â€™", "â€”", "Â·")
+        offenders: list[str] = []
+        for source_root in source_roots:
+            for path in source_root.rglob("*"):
+                if path in excluded_files or path.suffix.lower() not in {".py", ".js", ".html", ".css"}:
+                    continue
+                for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                    if "repairMojibakeText" in line or "mojibake" in line.lower():
+                        continue
+                    if any(marker in line for marker in markers):
+                        offenders.append(f"{path.relative_to(root)}:{line_no}: {line.strip()}")
+        self.assertEqual(offenders, [])
+
 
 if __name__ == "__main__":
     unittest.main()

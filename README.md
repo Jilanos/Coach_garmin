@@ -102,6 +102,11 @@ The coach chat:
 - uses pace-aware workout guidance when recent race or benchmark evidence is available
 - saves a versioned weekly plan under `data/reports/weekly_plan_<timestamp>.json`
 
+CLI/PWA coaching note:
+
+- the CLI keeps the conversational coaching flow and may ask clarification questions when a goal is underspecified
+- the PWA coaching flow is field-driven: objective is mandatory, constraints and targeted questions are persisted when edited, and the UI sends the available structured context directly to the provider without an extra clarification step
+
 8. Start the local-first PWA shell:
 
 ```powershell

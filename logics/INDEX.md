@@ -1,87 +1,63 @@
 # Logics Index
 
+_Refreshed: 2026-04-27_
+
+## Snapshot
+
+- Architecture decisions: 7
+- Product briefs: 5
+- Requests: 26
+- Backlog items: 28
+- Tasks: 29
+
 ## Architecture decisions
 
-| Doc | Title | Status | Progress | Path |
-|---|---|---|---|---|
-| [adr_000_choose_local_first_garmin_data_sync_and_storage_architecture](architecture/adr_000_choose_local_first_garmin_data_sync_and_storage_architecture.md) | Choose local-first Garmin data sync and storage architecture | Accepted |  | architecture/adr_000_choose_local_first_garmin_data_sync_and_storage_architecture.md |
-| [adr_001_choose_local_pwa_storage_and_provider_integration](architecture/adr_001_choose_local_pwa_storage_and_provider_integration.md) | Choose local PWA storage and provider integration | Accepted |  | architecture/adr_001_choose_local_pwa_storage_and_provider_integration.md |
-| [adr_002_place_workspace_in_settings_and_add_non_blocking_garmin_sync](architecture/adr_002_place_workspace_in_settings_and_add_non_blocking_garmin_sync.md) | Place workspace in settings and add non-blocking Garmin sync | Accepted |  | architecture/adr_002_place_workspace_in_settings_and_add_non_blocking_garmin_sync.md |
-| [adr_003_choose_monotone_pace_hr_curve_and_cadence_first_dashboard_metrics](architecture/adr_003_choose_monotone_pace_hr_curve_and_cadence_first_dashboard_metrics.md) | Choose monotone pace HR curve and cadence-first dashboard metrics | Accepted |  | architecture/adr_003_choose_monotone_pace_hr_curve_and_cadence_first_dashboard_metrics.md |
-| [adr_004_scientific_charts_for_sport_specific_volumes_and_data_recalculation](architecture/adr_004_scientific_charts_for_sport_specific_volumes_and_data_recalculation.md) | Scientific charts for sport specific volumes and data recalculation | Accepted |  | architecture/adr_004_scientific_charts_for_sport_specific_volumes_and_data_recalculation.md |
-| [adr_005_choose_end_to_end_utf_8_and_nfc_text_policy](architecture/adr_005_choose_end_to_end_utf_8_and_nfc_text_policy.md) | Choose End-to-End UTF-8 and NFC Text Policy | Accepted |  | architecture/adr_005_choose_end_to_end_utf_8_and_nfc_text_policy.md |
+| Doc | Title | Status |
+|---|---|---|
+| `adr_000` | Choose local-first Garmin data sync and storage architecture | Accepted |
+| `adr_001` | Choose local PWA storage and provider integration | Accepted |
+| `adr_002` | Place workspace in settings and add non-blocking Garmin sync | Accepted |
+| `adr_003` | Choose monotone pace HR curve and cadence-first dashboard metrics | Accepted |
+| `adr_004` | Scientific charts for sport specific volumes and data recalculation | Accepted |
+| `adr_005` | Choose End-to-End UTF-8 and NFC Text Policy | Accepted |
+| `adr_006` | Choose dynamic chart windows and cadence normalization | Accepted |
 
 ## Product briefs
 
-| Doc | Title | Status | Progress | Path |
+| Doc | Title | Status |
+|---|---|---|
+| `prod_000` | Local-first PWA coach dashboard | Active |
+| `prod_001` | Import workflow clarity and non-blocking Garmin sync | Active |
+| `prod_002` | Refine dashboard metrics and data processing for running analytics | Active |
+| `prod_003` | Scientific dashboard charts and sport-specific volume filtering | Active |
+| `prod_004` | Scientific chart centering and timeframe selector | Active |
+
+## Current dashboard and text workflow
+
+| Stage | Doc | Title | Status | Progress |
 |---|---|---|---|---|
-| [prod_000_local_first_pwa_coach_dashboard](product/prod_000_local_first_pwa_coach_dashboard.md) | Local-first PWA coach dashboard | Active |  | product/prod_000_local_first_pwa_coach_dashboard.md |
-| [prod_001_import_workflow_clarity_and_non_blocking_garmin_sync](product/prod_001_import_workflow_clarity_and_non_blocking_garmin_sync.md) | Import workflow clarity and non-blocking Garmin sync | Active |  | product/prod_001_import_workflow_clarity_and_non_blocking_garmin_sync.md |
-| [prod_002_refine_dashboard_metrics_and_data_processing_for_running_analytics](product/prod_002_refine_dashboard_metrics_and_data_processing_for_running_analytics.md) | Refine dashboard metrics and data processing for running analytics | Active |  | product/prod_002_refine_dashboard_metrics_and_data_processing_for_running_analytics.md |
-| [prod_003_scientific_dashboard_charts_and_sport_specific_volume_filtering](product/prod_003_scientific_dashboard_charts_and_sport_specific_volume_filtering.md) | Scientific dashboard charts and sport-specific volume filtering | Active |  | product/prod_003_scientific_dashboard_charts_and_sport_specific_volume_filtering.md |
+| Request | `req_017` | Scientific charts centered, timeframe selector, and French text fixes | Obsolete | |
+| Backlog | `item_017` | Scientific charts centered, timeframe selector, and French text fixes | Obsolete | 100% |
+| Task | `task_018` | Scientific charts centered, timeframe selector, and French text fixes | Obsolete | 100% |
+| Request | `req_018` | Dynamic chart timeframes and cadence unit correction | Done | |
+| Backlog | `item_018` | Dynamic chart timeframes and cadence unit correction | Done | 100% |
+| Task | `task_019` | Dynamic chart timeframes and cadence unit correction | Done | 100% |
+| Request | `req_022` | Refine scientific chart semantics, unsmoothed wellness views, and cadence / zone repairs | Done | |
+| Backlog | `item_023` | Refine volume, relative load, and heart-rate zone chart semantics | Done | 100% |
+| Backlog | `item_024` | Repair wellness raw views, cadence, and the combined pace / cadence / HR chart | Done | 100% |
+| Task | `task_024` | Refine volume, relative load, and heart-rate zone chart semantics | Done | 100% |
+| Task | `task_025` | Repair wellness raw views, cadence, and the combined pace / cadence / HR chart | Done | 100% |
+| Request | `req_023` | Refine dashboard zone controls, load semantics, session typing, and metric documentation | Done | |
+| Backlog | `item_025` | Refine dashboard zone controls, load semantics, session typing, and metric documentation | Done | 100% |
+| Task | `task_026` | Refine dashboard zone controls, load semantics, session typing, and metric documentation | Done | 100% |
+| Request | `req_024` | Finish ADR 005 source text cleanup and reconcile dashboard Logics continuity | Done | |
+| Backlog | `item_026` | Finish ADR 005 source text cleanup and reconcile dashboard Logics continuity | Done | 100% |
+| Task | `task_027` | Finish ADR 005 source text cleanup and reconcile dashboard Logics continuity | Done | 100% |
+| Request | `req_025` | Expand coaching inputs, persist constraints, and add a targeted training questions flow | Done | |
+| Backlog | `item_027` | Expand coaching inputs, persist constraints, and add a targeted training questions flow | Done | 100% |
+| Task | `task_028` | Expand coaching inputs, persist constraints, and add a targeted training questions flow | Done | 100% |
 
-## Requests
+## Notes
 
-| Doc | Title | Status | Progress | Path |
-|---|---|---|---|---|
-| [req_000_backup_garmin_connect_data_and_build_first_interpretation_layer](request/req_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md) | Backup Garmin Connect data and build first interpretation layer | Done |  | request/req_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md |
-| [req_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data](request/req_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data.md) | Connect local pipeline to a real Garmin source and harden incremental sync on user data | Done |  | request/req_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data.md |
-| [req_002_patch_manual_import_to_support_full_garmin_connect_export_shapes](request/req_002_patch_manual_import_to_support_full_garmin_connect_export_shapes.md) | Patch manual import to support full Garmin Connect export shapes | Done |  | request/req_002_patch_manual_import_to_support_full_garmin_connect_export_shapes.md |
-| [req_003_extend_garmin_export_coverage_to_the_full_initial_data_surface](request/req_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md) | Extend Garmin export coverage to the full initial data surface | Done |  | request/req_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md |
-| [req_004_build_a_local_first_coach_garmin_chat_cli](request/req_004_build_a_local_first_coach_garmin_chat_cli.md) | Build a local-first coach-garmin chat CLI | Done |  | request/req_004_build_a_local_first_coach_garmin_chat_cli.md |
-| [req_005_harden_real_export_normalization_and_clean_repo_delivery_artifacts](request/req_005_harden_real_export_normalization_and_clean_repo_delivery_artifacts.md) | Harden real export normalization and clean repo delivery artifacts | Done | 100% | request/req_005_harden_real_export_normalization_and_clean_repo_delivery_artifacts.md |
-| [req_006_make_the_running_coach_history_and_pace_aware](request/req_006_make_the_running_coach_history_and_pace_aware.md) | Make the running coach history-aware and pace-aware | Done | 100% | request/req_006_make_the_running_coach_history_and_pace_aware.md |
-| [req_007_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting](request/req_007_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting.md) | Harden ingestion lineage, FIT-first activity parsing, and coaching feature coverage reporting | Done |  | request/req_007_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting.md |
-| [req_008_local_first_pwa_coach_dashboard](request/req_008_local_first_pwa_coach_dashboard.md) | Local-first PWA coach dashboard | Done |  | request/req_008_local_first_pwa_coach_dashboard.md |
-| [req_009_pwa_coach_ux_polish_and_dashboard_enrichment](request/req_009_pwa_coach_ux_polish_and_dashboard_enrichment.md) | PWA coach UX polish and dashboard enrichment | Done |  | request/req_009_pwa_coach_ux_polish_and_dashboard_enrichment.md |
-| [req_010_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation](request/req_010_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation.md) | Refresh Garmin export via incremental sync and harden training data foundation | Done | 0 | request/req_010_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation.md |
-| [req_011_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings](request/req_011_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md) | Sidebar-led PWA workspace for import, dashboard, coach, terminal, and settings | Done | 100 | request/req_011_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md |
-| [req_012_clarify_import_workflow_accent_handling_and_refresh_actions](request/req_012_clarify_import_workflow_accent_handling_and_refresh_actions.md) | Clarify import workflow, accent handling, and refresh actions | Done |  | request/req_012_clarify_import_workflow_accent_handling_and_refresh_actions.md |
-| [req_013_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics](request/req_013_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md) | Refine dashboard metrics and data processing for pace HR cadence coach analytics | Done |  | request/req_013_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md |
-| [req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls](request/req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md) | Scientific charts sport-specific volumes and data recalculation controls | Done |  | request/req_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md |
-| [req_016_harden_utf_8_and_french_text_handling_end_to_end](request/req_016_harden_utf_8_and_french_text_handling_end_to_end.md) | Decisions | Done |  | request/req_016_harden_utf_8_and_french_text_handling_end_to_end.md |
-
-## Backlog
-
-| Doc | Title | Status | Progress | Path |
-|---|---|---|---|---|
-| [item_000_backup_garmin_connect_data_and_build_first_interpretation_layer](backlog/item_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md) | Backup Garmin Connect data and build first interpretation layer | Done | 100% | backlog/item_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md |
-| [item_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data](backlog/item_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data.md) | Connect local pipeline to a real Garmin source and harden incremental sync on user data | Done | 100% | backlog/item_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data.md |
-| [item_002_patch_manual_import_to_support_full_garmin_connect_export_shapes](backlog/item_002_patch_manual_import_to_support_full_garmin_connect_export_shapes.md) | Patch manual import to support full Garmin Connect export shapes | Done | 100% | backlog/item_002_patch_manual_import_to_support_full_garmin_connect_export_shapes.md |
-| [item_003_extend_garmin_export_coverage_to_the_full_initial_data_surface](backlog/item_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md) | Extend Garmin export coverage to the full initial data surface | Done | 100% | backlog/item_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md |
-| [item_004_build_a_local_first_coach_garmin_chat_cli](backlog/item_004_build_a_local_first_coach_garmin_chat_cli.md) | Build a local-first coach-garmin chat CLI | Done | 100% | backlog/item_004_build_a_local_first_coach_garmin_chat_cli.md |
-| [item_005_correct_real_garmin_activity_normalization_and_coaching_plausibility_on_local_exports](backlog/item_005_correct_real_garmin_activity_normalization_and_coaching_plausibility_on_local_exports.md) | Correct real Garmin activity normalization and coaching plausibility on local exports | Done | 100% | backlog/item_005_correct_real_garmin_activity_normalization_and_coaching_plausibility_on_local_exports.md |
-| [item_006_clean_local_validation_artifacts_and_logics_delivery_hygiene](backlog/item_006_clean_local_validation_artifacts_and_logics_delivery_hygiene.md) | Clean local validation artifacts and logics delivery hygiene | Done | 100% | backlog/item_006_clean_local_validation_artifacts_and_logics_delivery_hygiene.md |
-| [item_007_make_the_running_coach_history_and_pace_aware](backlog/item_007_make_the_running_coach_history_and_pace_aware.md) | Make the running coach history-aware and pace-aware | Done | 100% | backlog/item_007_make_the_running_coach_history_and_pace_aware.md |
-| [item_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting](backlog/item_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting.md) | Harden ingestion lineage, FIT-first activity parsing, and coaching feature coverage reporting | Done | 100% | backlog/item_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting.md |
-| [item_009_local_first_pwa_coach_dashboard](backlog/item_009_local_first_pwa_coach_dashboard.md) | Local-first PWA coach dashboard | Done | 100% | backlog/item_009_local_first_pwa_coach_dashboard.md |
-| [item_010_pwa_coach_ux_polish_and_dashboard_enrichment](backlog/item_010_pwa_coach_ux_polish_and_dashboard_enrichment.md) | PWA coach UX polish and dashboard enrichment | Done | 100% | backlog/item_010_pwa_coach_ux_polish_and_dashboard_enrichment.md |
-| [item_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation](backlog/item_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation.md) | Refresh Garmin export via incremental sync and harden training data foundation | Done | 100% | backlog/item_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation.md |
-| [item_012_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings](backlog/item_012_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md) | Sidebar-led PWA workspace for import, dashboard, coach, terminal, and settings | Done | 100% | backlog/item_012_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md |
-| [item_013_clarify_import_workflow_accent_handling_and_refresh_actions](backlog/item_013_clarify_import_workflow_accent_handling_and_refresh_actions.md) | Clarify import workflow, accent handling, and refresh actions | Done | 100% | backlog/item_013_clarify_import_workflow_accent_handling_and_refresh_actions.md |
-| [item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics](backlog/item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md) | Refine dashboard metrics and data processing for pace HR cadence coach analytics | Done | 100% | backlog/item_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md |
-| [item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls](backlog/item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md) | Scientific charts sport-specific volumes and data recalculation controls | Done | 100% | backlog/item_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md |
-| [item_016_clarifications](backlog/item_016_clarifications.md) | Harden UTF-8 and French Text Handling End to End | Done | 100% | backlog/item_016_clarifications.md |
-
-## Tasks
-
-| Doc | Title | Status | Progress | Path |
-|---|---|---|---|---|
-| [task_000_backup_garmin_connect_data_and_build_first_interpretation_layer](tasks/task_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md) | Backup Garmin Connect data and build first interpretation layer | Done | 100% | tasks/task_000_backup_garmin_connect_data_and_build_first_interpretation_layer.md |
-| [task_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data](tasks/task_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data.md) | Connect local pipeline to a real Garmin source and harden incremental sync on user data | Done | 100% | tasks/task_001_connect_local_pipeline_to_a_real_garmin_source_and_harden_incremental_sync_on_user_data.md |
-| [task_002_patch_manual_import_to_support_full_garmin_connect_export_shapes](tasks/task_002_patch_manual_import_to_support_full_garmin_connect_export_shapes.md) | Patch manual import to support full Garmin Connect export shapes | Done | 100% | tasks/task_002_patch_manual_import_to_support_full_garmin_connect_export_shapes.md |
-| [task_003_extend_garmin_export_coverage_to_the_full_initial_data_surface](tasks/task_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md) | Extend Garmin export coverage to the full initial data surface | Done | 100% | tasks/task_003_extend_garmin_export_coverage_to_the_full_initial_data_surface.md |
-| [task_004_build_a_local_first_coach_garmin_chat_cli](tasks/task_004_build_a_local_first_coach_garmin_chat_cli.md) | Build a local-first coach-garmin chat CLI | Done | 100% | tasks/task_004_build_a_local_first_coach_garmin_chat_cli.md |
-| [task_005_correct_real_garmin_activity_normalization_and_coaching_plausibility_on_local_exports](tasks/task_005_correct_real_garmin_activity_normalization_and_coaching_plausibility_on_local_exports.md) | Correct real Garmin activity normalization and coaching plausibility on local exports | Done | 100% | tasks/task_005_correct_real_garmin_activity_normalization_and_coaching_plausibility_on_local_exports.md |
-| [task_006_clean_local_validation_artifacts_and_logics_delivery_hygiene](tasks/task_006_clean_local_validation_artifacts_and_logics_delivery_hygiene.md) | Clean local validation artifacts and Logics delivery hygiene | Done | 100% | tasks/task_006_clean_local_validation_artifacts_and_logics_delivery_hygiene.md |
-| [task_007_make_the_running_coach_history_and_pace_aware](tasks/task_007_make_the_running_coach_history_and_pace_aware.md) | Make the running coach history-aware and pace-aware | Done | 100% | tasks/task_007_make_the_running_coach_history_and_pace_aware.md |
-| [task_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting](tasks/task_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting.md) | Harden ingestion lineage, FIT-first activity parsing, and coaching feature coverage reporting | Done | 100% | tasks/task_008_harden_ingestion_lineage_fit_first_activity_parsing_and_coaching_feature_coverage_reporting.md |
-| [task_009_local_first_pwa_coach_dashboard](tasks/task_009_local_first_pwa_coach_dashboard.md) | Local-first PWA coach dashboard | Done | 100% | tasks/task_009_local_first_pwa_coach_dashboard.md |
-| [task_010_pwa_coach_ux_polish_and_dashboard_enrichment](tasks/task_010_pwa_coach_ux_polish_and_dashboard_enrichment.md) | PWA coach UX polish and dashboard enrichment | Done | 100% | tasks/task_010_pwa_coach_ux_polish_and_dashboard_enrichment.md |
-| [task_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation](tasks/task_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation.md) | Refresh Garmin export via incremental sync and harden training data foundation | Done | 100% | tasks/task_011_refresh_garmin_export_via_incremental_sync_and_harden_training_data_foundation.md |
-| [task_012_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings](tasks/task_012_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md) | Sidebar-led PWA workspace for import, dashboard, coach, terminal, and settings | Done | 100% | tasks/task_012_sidebar_led_pwa_workspace_for_import_dashboard_coach_terminal_and_settings.md |
-| [task_013_clarify_import_workflow_accent_handling_and_refresh_actions](tasks/task_013_clarify_import_workflow_accent_handling_and_refresh_actions.md) | Clarify import workflow, accent handling, and refresh actions | Done | 100% | tasks/task_013_clarify_import_workflow_accent_handling_and_refresh_actions.md |
-| [task_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics](tasks/task_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md) | Refine dashboard metrics and data processing for pace HR cadence coach analytics | Done | 100% | tasks/task_014_refine_dashboard_metrics_and_data_processing_for_pace_hr_cadence_coach_analytics.md |
-| [task_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls](tasks/task_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md) | Scientific charts sport-specific volumes and data recalculation controls | Done | 100% | tasks/task_015_scientific_charts_sport_specific_volumes_and_data_recalculation_controls.md |
-| [task_016_clarifications](tasks/task_016_clarifications.md) | Harden UTF-8 and French Text Handling End to End | Done | 100% | tasks/task_016_clarifications.md |
-| [task_017_french_text_encoding_regression_tests_and_diagnostics](tasks/task_017_french_text_encoding_regression_tests_and_diagnostics.md) | French Text Encoding Regression Tests and Diagnostics | Done | 100% | tasks/task_017_french_text_encoding_regression_tests_and_diagnostics.md |
+- Older completed workflow docs remain in `logics/request`, `logics/backlog`, and `logics/tasks`.
+- This index is intentionally focused on the active dashboard, coaching, and text-continuity story plus the current governing companion docs.

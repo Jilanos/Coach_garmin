@@ -1,10 +1,10 @@
 ## task_018_scientific_charts_centered_timeframe_selector_and_french_text_fixes - Scientific charts centered, timeframe selector, and French text fixes
 > From version: 0.0.0
 > Schema version: 1.0
-> Status: Ready
+> Status: Obsolete
 > Understanding: 96%
 > Confidence: 93%
-> Progress: 0%
+> Progress: 100%
 > Complexity: Medium
 > Theme: General
 > Reminder: Update status/understanding/confidence/progress and linked request/backlog references when you edit this doc.
@@ -87,11 +87,17 @@ stateDiagram-v2
 - Confirm the completed wave leaves the repository in a commit-ready state.
 
 # Definition of Done (DoD)
-- [ ] Scope implemented and acceptance criteria covered.
-- [ ] Validation commands executed and results captured.
-- [ ] No wave or step was closed before the relevant automated tests and quality checks passed.
-- [ ] Linked request/backlog/task docs updated during completed waves and at closure.
-- [ ] Each completed wave left a commit-ready checkpoint or an explicit exception is documented.
-- [ ] Status is `Done` and progress is `100%`.
+- [x] Scope was superseded by later bounded delivery waves and this task now serves as traceability only.
+- [x] The successor docs are explicit.
+- [x] Linked request/backlog/task docs were updated at reconciliation time.
+- [x] Status is `Obsolete` and progress is `100%` because no direct execution is expected from this task anymore.
 
 # Report
+- Marked `Obsolete` on `2026-04-25`.
+- This task was not executed directly. Its original scope was absorbed by:
+  - `task_019_dynamic_chart_timeframes_and_cadence_unit_correction`
+  - `task_024_refine_volume_relative_load_and_heart_rate_zone_chart_semantics`
+  - `task_025_repair_wellness_raw_views_cadence_and_combined_pace_cadence_hr_chart`
+  - `task_026_refine_dashboard_zone_load_session_typing_and_metric_documentation`
+  - `task_027_finish_adr_005_source_text_cleanup_and_reconcile_dashboard_logics_continuity`
+- Keep this doc for historical continuity only; do not use it as the next execution entrypoint.

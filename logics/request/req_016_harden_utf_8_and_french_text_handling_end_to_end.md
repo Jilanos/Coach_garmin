@@ -17,7 +17,7 @@
 - Define a single default text policy for the repo: normalize incoming user text, preserve UTF-8 internally, and emit readable French text in every user-facing surface.
 
 # Context
-- The project has repeatedly shown character corruption such as `Donn?es`, `prÃƒÆ’Ã‚Âªt`, `Analyse: prÃƒÆ’Ã‚Âªte`, and other mojibake patterns in the PWA, diagnostics, logs, launcher flow, and generated text outputs.
+- The project has repeatedly shown character corruption such as unreadable data labels, broken accent sequences, and other mojibake patterns in the PWA, diagnostics, logs, launcher flow, and generated text outputs.
 - Some fixes already exist in isolated places, but the handling is still fragmented enough that text bugs keep reappearing in different surfaces.
 - The desired outcome is an end-to-end text hygiene baseline: normalize once at boundaries, preserve Unicode in storage and transport, and render French text correctly everywhere.
 - The implementation should treat the following as boundaries that must be clean:

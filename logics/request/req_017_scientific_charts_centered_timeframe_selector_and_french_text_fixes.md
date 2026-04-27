@@ -1,7 +1,7 @@
 ## req_017_scientific_charts_centered_timeframe_selector_and_french_text_fixes - Scientific charts centered, timeframe selector, and French text fixes
 > From version: 0.0.0
 > Schema version: 1.0
-> Status: Draft
+> Status: Obsolete
 > Understanding: 96%
 > Confidence: 93%
 > Complexity: Medium
@@ -20,6 +20,10 @@
 - The chart text still shows corrupted French characters in several labels and legends.
 - The user wants the charts to feel more scientific, with centered composition, clear axes, ticks, and hover values.
 - The chart controls should support quick switching between 1 month, 3 months, and 1 year without changing the overall dashboard flow.
+- This request is no longer the active execution path:
+  - timeframe behavior and cadence normalization moved into `req_018`
+  - chart semantics and French chart text repairs moved into `req_022` and `req_023`
+  - any remaining source-text cleanup is now handled by `req_024`
 
 ```mermaid
 %% logics-kind: request
@@ -54,3 +58,12 @@ flowchart TD
 - Skip when: Skip when the work targets another feature, repository, or workflow stage.
 # Backlog
 - `item_017_scientific_charts_centered_timeframe_selector_and_french_text_fixes`
+
+# Outcome
+- Marked `Obsolete` on `2026-04-25`.
+- The original scope was absorbed by:
+  - `req_018_dynamic_chart_timeframes_and_cadence_unit_correction`
+  - `req_022_refine_scientific_chart_semantics_unsmoothed_wellness_views_and_cadence_zone_repairs`
+  - `req_023_refine_dashboard_zone_load_session_typing_and_metric_documentation`
+  - `req_024_finish_adr_005_source_text_cleanup_and_reconcile_dashboard_logics_continuity`
+- Keep this doc for traceability only; do not reopen it for new delivery.

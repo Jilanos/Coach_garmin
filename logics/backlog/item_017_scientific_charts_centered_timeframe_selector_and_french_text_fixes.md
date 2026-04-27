@@ -1,10 +1,10 @@
 ## item_017_scientific_charts_centered_timeframe_selector_and_french_text_fixes - Scientific charts centered, timeframe selector, and French text fixes
 > From version: 0.0.0
 > Schema version: 1.0
-> Status: Ready
+> Status: Obsolete
 > Understanding: 96%
 > Confidence: 93%
-> Progress: 0%
+> Progress: 100%
 > Complexity: Medium
 > Theme: General
 > Reminder: Update status/understanding/confidence/progress and linked request/task references when you edit this doc.
@@ -76,3 +76,9 @@ flowchart TD
 - Source file: `logics\request\req_017_scientific_charts_centered_timeframe_selector_and_french_text_fixes.md`.
 - Keep this backlog item as one bounded delivery slice; create sibling backlog items for the remaining request coverage instead of widening this doc.
 - Request context seeded into this backlog item from `logics\request\req_017_scientific_charts_centered_timeframe_selector_and_french_text_fixes.md`.
+- Marked `Obsolete` on `2026-04-25` because the scope was absorbed by later delivery slices:
+  - `item_018_dynamic_chart_timeframes_and_cadence_unit_correction`
+  - `item_023_refine_volume_relative_load_and_heart_rate_zone_chart_semantics`
+  - `item_024_repair_wellness_raw_views_cadence_and_combined_pace_cadence_hr_chart`
+  - `item_025_refine_dashboard_zone_controls_load_semantics_session_typing_and_metric_documentation`
+  - `item_026_finish_adr_005_source_text_cleanup_and_reconcile_dashboard_logics_continuity`

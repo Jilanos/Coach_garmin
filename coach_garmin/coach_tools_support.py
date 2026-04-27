@@ -304,6 +304,19 @@ class LocalCoachToolkit:
         write_json(plan_path, plan_payload)
         return {"path": str(plan_path), "plan": plan_payload}
 
+    def latest_plan(self) -> dict[str, Any]:
+        ensure_data_dirs(self.data_dir)
+        report_dir = self.data_dir / "reports"
+        plan_files = sorted(report_dir.glob("weekly_plan_*.json"))
+        if not plan_files:
+            return {"available": False, "path": None, "plan": None}
+        latest_path = plan_files[-1]
+        return repair_text_tree({
+            "available": True,
+            "path": str(latest_path),
+            "plan": json.loads(latest_path.read_text(encoding="utf-8")),
+        })
+
     def _goal_profile_path(self) -> Path:
         if self.data_dir == DEFAULT_GOAL_PROFILE_PATH.parent.parent:
             return DEFAULT_GOAL_PROFILE_PATH
@@ -459,7 +472,13 @@ class LocalCoachToolkit:
         windows: dict[str, Any],
         benchmark: dict[str, Any] | None,
     ) -> str:
-        constraints = str(goal_profile.get("constraints", "")).lower()
+        constraints_parts = [
+            str(goal_profile.get("constraints", "") or ""),
+            str(goal_profile.get("blessure", "") or ""),
+            str(goal_profile.get("fatigue", "") or ""),
+            str(goal_profile.get("maladie", "") or ""),
+        ]
+        constraints = " ".join(part for part in constraints_parts if part).lower()
         if any(term in constraints for term in ("periost", "bless", "douleur", "sensible")):
             return "return-from-injury"
         if windows["21d"]["distance_km"] < 25 or windows["21d"]["active_days"] <= 2:

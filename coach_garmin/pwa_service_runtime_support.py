@@ -815,6 +815,24 @@ def _build_handler(config: CoachPwaConfig):
                 )
                 self._send_json(result)
                 return
+            if parsed.path == "/api/coach/profile":
+                goal_text = str(payload.get("goal_text") or "").strip()
+                data_dir = Path(str(payload.get("data_dir") or config.default_data_dir))
+                self._log_http("POST", parsed.path)
+                if not goal_text:
+                    self._send_json({"error": "goal_text is required"}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                result = save_coach_profile(
+                    data_dir=data_dir,
+                    goal_text=goal_text,
+                    profile=dict(payload.get("profile") or {}),
+                    provider=str(payload.get("provider") or "ollama"),
+                    model=payload.get("model"),
+                    base_url=payload.get("base_url"),
+                    api_key=payload.get("api_key"),
+                )
+                self._send_json(result)
+                return
             if parsed.path == "/api/coach/plan":
                 goal_text = str(payload.get("goal_text") or "").strip()
                 data_dir = Path(str(payload.get("data_dir") or config.default_data_dir))
@@ -827,6 +845,35 @@ def _build_handler(config: CoachPwaConfig):
                         data_dir=data_dir,
                         goal_text=goal_text,
                         answers=dict(payload.get("answers") or {}),
+                        profile=dict(payload.get("profile") or {}) if payload.get("profile") is not None else None,
+                        provider=str(payload.get("provider") or "ollama"),
+                        model=payload.get("model"),
+                        base_url=payload.get("base_url"),
+                        api_key=payload.get("api_key"),
+                    )
+                except Exception as exc:  # pragma: no cover - surfaced in UI
+                    status = HTTPStatus.SERVICE_UNAVAILABLE if _is_provider_issue(exc) else HTTPStatus.BAD_REQUEST
+                    self._send_json({"error": str(exc), "retryable": status == HTTPStatus.SERVICE_UNAVAILABLE}, status=status)
+                    return
+                self._send_json(result)
+                return
+            if parsed.path == "/api/coach/question":
+                goal_text = str(payload.get("goal_text") or "").strip()
+                question_text = str(payload.get("question_text") or "").strip()
+                data_dir = Path(str(payload.get("data_dir") or config.default_data_dir))
+                self._log_http("POST", parsed.path)
+                if not goal_text:
+                    self._send_json({"error": "goal_text is required"}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                if not question_text:
+                    self._send_json({"error": "question_text is required"}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                try:
+                    result = answer_coach_question(
+                        data_dir=data_dir,
+                        goal_text=goal_text,
+                        question_text=question_text,
+                        profile=dict(payload.get("profile") or {}) if payload.get("profile") is not None else None,
                         provider=str(payload.get("provider") or "ollama"),
                         model=payload.get("model"),
                         base_url=payload.get("base_url"),

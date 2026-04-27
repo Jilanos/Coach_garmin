@@ -150,6 +150,7 @@ def build_workspace_status(
     history_21d = toolkit.history(days=21)
     history_28d = toolkit.history(days=28)
     goal_profile = toolkit.goals().get("goal_profile", {})
+    latest_plan_state = toolkit.latest_plan()
     if not isinstance(goal_profile, dict):
         goal_profile = {}
     analysis = toolkit.analysis(goal_profile or {"target_event": "running"})
@@ -263,6 +264,8 @@ def build_workspace_status(
     readiness = _build_dashboard_readiness(metrics=metrics, analysis=analysis, import_state=import_state, trend_series=trend_series)
     return repair_text_tree({
         "data_dir": str(data_dir),
+        "goal_profile": goal_profile,
+        "latest_plan": latest_plan_state,
         "workspace": {
             "path": str(data_dir),
             "exists": data_dir.exists(),
@@ -295,6 +298,164 @@ def build_workspace_status(
     })
 
 
+_COACH_PROFILE_TEXT_FIELDS = (
+    "blessure",
+    "fatigue",
+    "maladie",
+    "emploi_du_temps",
+    "disponibilite",
+    "temperature",
+    "deplacements",
+    "autres_sports",
+    "targeted_question",
+)
+
+
+def _clean_text(value: Any) -> str:
+    return repair_mojibake_text(str(value or "")).strip()
+
+
+def _build_goal_profile_from_profile_payload(
+    *,
+    goal_text: str,
+    profile_payload: dict[str, Any] | None,
+    existing_goal: dict[str, Any] | None,
+) -> dict[str, Any]:
+    goal_profile = CoachChatSession._build_goal_profile(goal_text)
+    if isinstance(existing_goal, dict):
+        goal_profile = CoachChatSession._merge_existing_goal_profile(existing_goal, goal_profile)
+    payload = profile_payload if isinstance(profile_payload, dict) else {}
+    goal_profile["goal_text"] = goal_text
+    for key in _COACH_PROFILE_TEXT_FIELDS:
+        text = _clean_text(payload.get(key))
+        if text:
+            goal_profile[key] = text
+        else:
+            goal_profile.pop(key, None)
+    constraints = CoachChatSession._compose_constraints(goal_profile)
+    if constraints:
+        goal_profile["constraints"] = constraints
+    else:
+        goal_profile.pop("constraints", None)
+    goal_profile["target_event"] = CoachChatSession._primary_event(goal_profile)
+    return {key: value for key, value in goal_profile.items() if value not in (None, "")}
+
+
+def _compact_targeted_question_bundle(
+    *,
+    goal_profile: dict[str, Any],
+    metrics_context: dict[str, Any],
+    history_context: dict[str, Any],
+    analysis_context: dict[str, Any],
+    latest_plan_state: dict[str, Any],
+    question_text: str,
+) -> dict[str, Any]:
+    latest_metrics = metrics_context.get("latest_metrics", {}) if isinstance(metrics_context.get("latest_metrics", {}), dict) else {}
+    compact_metrics = {
+        key: latest_metrics.get(key)
+        for key in (
+            "load_7d",
+            "load_28d",
+            "sleep_hours_7d",
+            "resting_hr_7d",
+            "hrv_7d",
+            "fatigue_flag",
+            "overreaching_flag",
+            "cadence_7d",
+            "running_pace_7d",
+            "running_hr_7d",
+        )
+        if key in latest_metrics
+    }
+    compact_history = {
+        key: history_context.get(key)
+        for key in (
+            "available",
+            "latest_activity_day",
+            "recent_activity_count",
+            "recent_running_days",
+            "running_distance_km",
+            "bike_distance_km",
+            "long_run_km",
+            "recent_activities",
+        )
+        if key in history_context
+    }
+    compact_analysis = {
+        key: analysis_context.get(key)
+        for key in (
+            "available",
+            "principal_objective",
+            "recommended_benchmark",
+            "inferred_paces",
+            "training_phase",
+            "signal_highlights",
+            "analysis_summary",
+        )
+        if key in analysis_context
+    }
+    latest_plan_payload = latest_plan_state.get("plan") if isinstance(latest_plan_state.get("plan"), dict) else {}
+    summarized_plan = {
+        "available": bool(latest_plan_state.get("available")),
+        "path": latest_plan_state.get("path"),
+        "generated_at": latest_plan_payload.get("generated_at"),
+        "coach_summary": latest_plan_payload.get("coach_summary"),
+        "goal_profile": {
+            key: latest_plan_payload.get("goal_profile", {}).get(key)
+            for key in ("goal_text", "target_event", "principal_objective", "target_timeline_weeks", "available_days_per_week")
+            if isinstance(latest_plan_payload.get("goal_profile"), dict) and key in latest_plan_payload.get("goal_profile", {})
+        },
+        "weekly_plan": [
+            {
+                "day": item.get("day"),
+                "session_title": item.get("session_title"),
+                "objective": item.get("objective"),
+                "intensity": item.get("intensity"),
+                "notes": item.get("notes"),
+            }
+            for item in (latest_plan_payload.get("weekly_plan") or [])
+            if isinstance(item, dict)
+        ][:7],
+    }
+    return {
+        "question_text": question_text,
+        "goal_profile": {
+            key: goal_profile.get(key)
+            for key in (
+                "goal_text",
+                "target_event",
+                "principal_objective",
+                "target_time",
+                "target_timeline_weeks",
+                "available_days_per_week",
+                "constraints",
+                "blessure",
+                "fatigue",
+                "maladie",
+                "emploi_du_temps",
+                "disponibilite",
+                "temperature",
+                "deplacements",
+                "autres_sports",
+            )
+            if key in goal_profile
+        },
+        "structured_constraints": CoachChatSession._structured_constraints(goal_profile),
+        "metrics": compact_metrics,
+        "history": compact_history,
+        "analysis": compact_analysis,
+        "latest_plan": summarized_plan,
+        "generation_rules": {
+            "language": "fr",
+            "must_be_direct_and_analytical": True,
+            "must_use_recent_data_first": True,
+            "must_not_regenerate_plan": True,
+            "must_call_out_missing_plan_context": not summarized_plan["available"],
+            "must_be_cautious": True,
+        },
+    }
+
+
 def prepare_coach_questions(
     *,
     data_dir: Path,
@@ -321,11 +482,40 @@ def prepare_coach_questions(
     })
 
 
+def save_coach_profile(
+    *,
+    data_dir: Path,
+    goal_text: str,
+    profile: dict[str, Any] | None = None,
+    provider: str = "ollama",
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    toolkit = LocalCoachToolkit(data_dir=data_dir)
+    existing_goal = toolkit.goals().get("goal_profile", {})
+    goal_profile = _build_goal_profile_from_profile_payload(
+        goal_text=goal_text,
+        profile_payload=profile,
+        existing_goal=existing_goal if isinstance(existing_goal, dict) else {},
+    )
+    goal_profile["updated_at"] = datetime.now(UTC).isoformat()
+    goal_state = toolkit.goals(goal_profile)
+    analysis = toolkit.analysis(goal_profile)
+    return repair_text_tree({
+        "goal_profile": goal_profile,
+        "goal_profile_path": goal_state["path"],
+        "analysis": analysis,
+        "dashboard": build_workspace_status(data_dir, provider=provider, model=model, base_url=base_url, api_key=api_key),
+    })
+
+
 def generate_coach_plan(
     *,
     data_dir: Path,
     goal_text: str,
     answers: dict[str, Any] | None = None,
+    profile: dict[str, Any] | None = None,
     provider: str = "ollama",
     model: str | None = None,
     base_url: str | None = None,
@@ -335,29 +525,34 @@ def generate_coach_plan(
     answers = answers or {}
     history_context = toolkit.history()
     existing_goal = toolkit.goals().get("goal_profile", {})
-    goal_profile = CoachChatSession._build_goal_profile(goal_text)
-    if isinstance(existing_goal, dict):
-        goal_profile = CoachChatSession._merge_existing_goal_profile(existing_goal, goal_profile)
-    pending_questions = []
-    for key, question, parser in CoachChatSession._clarification_questions(goal_profile, history_context):
-        raw_answer = answers.get(key)
-        if raw_answer in (None, ""):
-            pending_questions.append({"key": key, "question": question})
-            continue
-        goal_profile[key] = parser(str(raw_answer).strip())
+    if profile is not None:
+        goal_profile = _build_goal_profile_from_profile_payload(
+            goal_text=goal_text,
+            profile_payload=profile,
+            existing_goal=existing_goal if isinstance(existing_goal, dict) else {},
+        )
+    else:
+        goal_profile = CoachChatSession._build_goal_profile(goal_text)
+        if isinstance(existing_goal, dict):
+            goal_profile = CoachChatSession._merge_existing_goal_profile(existing_goal, goal_profile)
+        pending_questions = []
+        for key, question, parser in CoachChatSession._clarification_questions(goal_profile, history_context):
+            raw_answer = answers.get(key)
+            if raw_answer in (None, ""):
+                pending_questions.append({"key": key, "question": question})
+                continue
+            goal_profile[key] = parser(str(raw_answer).strip())
+        if pending_questions:
+            return repair_text_tree({
+                "needs_clarification": True,
+                "goal_profile": goal_profile,
+                "questions": pending_questions,
+                "analysis": toolkit.analysis(goal_profile),
+                "dashboard": build_workspace_status(data_dir, provider=provider, model=model, base_url=base_url, api_key=api_key),
+            })
 
-    if pending_questions:
-        return repair_text_tree({
-            "needs_clarification": True,
-            "goal_profile": goal_profile,
-            "questions": pending_questions,
-            "analysis": toolkit.analysis(goal_profile),
-            "dashboard": build_workspace_status(data_dir, provider=provider, model=model, base_url=base_url, api_key=api_key),
-        })
-
-    goal_profile["goal_text"] = goal_text
-    goal_profile["target_event"] = CoachChatSession._primary_event(goal_profile)
-    from datetime import UTC, datetime
+        goal_profile["goal_text"] = goal_text
+        goal_profile["target_event"] = CoachChatSession._primary_event(goal_profile)
 
     goal_profile["updated_at"] = datetime.now(UTC).isoformat()
     toolkit.goals(goal_profile)
@@ -404,6 +599,65 @@ def generate_coach_plan(
         "signals_used": saved_plan_payload["signals_used"],
         "weekly_plan": normalized_plan,
         "plan_path": plan_state["path"],
+        "analysis": analysis_context,
+        "dashboard": build_workspace_status(data_dir, provider=provider, model=model, base_url=base_url, api_key=api_key),
+    })
+
+
+def answer_coach_question(
+    *,
+    data_dir: Path,
+    goal_text: str,
+    question_text: str,
+    profile: dict[str, Any] | None = None,
+    provider: str = "ollama",
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    toolkit = LocalCoachToolkit(data_dir=data_dir)
+    existing_goal = toolkit.goals().get("goal_profile", {})
+    goal_profile = _build_goal_profile_from_profile_payload(
+        goal_text=goal_text,
+        profile_payload=profile,
+        existing_goal=existing_goal if isinstance(existing_goal, dict) else {},
+    )
+    goal_profile["updated_at"] = datetime.now(UTC).isoformat()
+    toolkit.goals(goal_profile)
+    metrics_context = toolkit.metrics()
+    history_context = toolkit.history()
+    analysis_context = toolkit.analysis(goal_profile)
+    latest_plan_state = toolkit.latest_plan()
+    prompt_bundle = _compact_targeted_question_bundle(
+        goal_profile=goal_profile,
+        metrics_context=metrics_context,
+        history_context=history_context,
+        analysis_context=analysis_context,
+        latest_plan_state=latest_plan_state,
+        question_text=question_text,
+    )
+    llm_client = build_coach_client(CoachLLMConfig(provider=provider, model=model, base_url=base_url, api_key=api_key))
+    answer_payload = llm_client.answer_targeted_question(prompt_bundle)
+    signals_used = CoachChatSession._normalize_signals_used(
+        answer_payload.get("signals_used", []),
+        metrics_context,
+        history_context,
+        analysis_context,
+    )
+    latest_plan_available = bool(latest_plan_state.get("available"))
+    return repair_text_tree({
+        "goal_profile": goal_profile,
+        "question_text": question_text,
+        "coach_answer": answer_payload.get("coach_answer", ""),
+        "follow_up": answer_payload.get("follow_up", ""),
+        "signals_used": signals_used,
+        "plan_context_available": latest_plan_available,
+        "plan_context_path": latest_plan_state.get("path"),
+        "plan_context_note": (
+            "Le dernier plan enregistré a été utilisé comme contexte."
+            if latest_plan_available
+            else "Aucun plan enregistré n'était disponible; la réponse s'appuie sur le profil courant et les données récentes."
+        ),
         "analysis": analysis_context,
         "dashboard": build_workspace_status(data_dir, provider=provider, model=model, base_url=base_url, api_key=api_key),
     })

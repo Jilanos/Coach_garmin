@@ -41,6 +41,15 @@ class OpenAICoachClient:
             raise RuntimeError("OpenAI returned a response without a valid weekly plan payload.")
         return parsed
 
+    def answer_targeted_question(self, prompt_bundle: dict[str, Any]) -> dict[str, Any]:
+        self.ensure_ready()
+        prompt = self._build_question_prompt(prompt_bundle)
+        text = self._chat(prompt)
+        parsed = self._parse_json_response(text)
+        if not isinstance(parsed.get("coach_answer"), str):
+            raise RuntimeError("OpenAI returned a response without a valid targeted coaching answer.")
+        return parsed
+
     def _chat(self, prompt: str) -> str:
         payload = self._request_json(
             "/chat/completions",
@@ -121,6 +130,26 @@ class OpenAICoachClient:
             "If multiple goals exist, follow the principal objective in the context.\n"
             "When pace inference is available, use it directly in sessions.\n"
             "When pace inference is weak, explicitly say that and use RPE guidance.\n"
+            "Return valid JSON only.\n"
+            f"Required schema: {json.dumps(schema, ensure_ascii=True)}\n"
+            f"Context: {json.dumps(prompt_bundle, ensure_ascii=True)}"
+        )
+
+    @staticmethod
+    def _build_question_prompt(prompt_bundle: dict[str, Any]) -> str:
+        schema = {
+            "coach_answer": "direct French answer to the user's targeted training question",
+            "signals_used": ["list of local signals and plan-context elements used in the answer"],
+            "plan_context_used": True,
+            "follow_up": "optional concise next step or caution in French",
+        }
+        return (
+            "Answer a targeted running-coach question in French from the provided local context.\n"
+            "Do not generate or replace a weekly plan.\n"
+            "Answer the precise user question directly and analytically.\n"
+            "Use recent local data first, then the latest saved plan when available.\n"
+            "If no saved plan is available, say so explicitly and still answer from the current profile and recent data.\n"
+            "Do not give medical advice.\n"
             "Return valid JSON only.\n"
             f"Required schema: {json.dumps(schema, ensure_ascii=True)}\n"
             f"Context: {json.dumps(prompt_bundle, ensure_ascii=True)}"

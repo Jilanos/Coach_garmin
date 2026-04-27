@@ -151,6 +151,9 @@ class CoachChatTest(unittest.TestCase):
 
             plan = toolkit.plan({"weekly_plan": [{"day": "Lundi"}]})
             self.assertTrue(Path(plan["path"]).is_file())
+            latest_plan = toolkit.latest_plan()
+            self.assertTrue(latest_plan["available"])
+            self.assertEqual(latest_plan["plan"]["weekly_plan"][0]["day"], "Lundi")
 
     def test_local_coach_toolkit_metrics_tolerates_missing_optional_tables(self) -> None:
         with TemporaryDirectory() as tmp:

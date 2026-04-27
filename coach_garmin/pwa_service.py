@@ -20,7 +20,9 @@ _resolve_static_path = _support._resolve_static_path
 
 _BUILD_WORKSPACE_STATUS_IMPL = _support.build_workspace_status
 _PREPARE_COACH_QUESTIONS_IMPL = _support.prepare_coach_questions
+_SAVE_COACH_PROFILE_IMPL = _support.save_coach_profile
 _GENERATE_COACH_PLAN_IMPL = _support.generate_coach_plan
+_ANSWER_COACH_QUESTION_IMPL = _support.answer_coach_question
 _IMPORT_GARMIN_EXPORT_IMPL = _support.import_garmin_export
 _SYNC_GARMIN_CONNECT_IMPL = _support.sync_garmin_connect
 _RECALCULATE_WORKSPACE_IMPL = _support.recalculate_workspace
@@ -32,13 +34,17 @@ def _sync_support_globals() -> None:
     _support.CoachLLMConfig = CoachLLMConfig
     _support.build_workspace_status = build_workspace_status
     _support.prepare_coach_questions = prepare_coach_questions
+    _support.save_coach_profile = save_coach_profile
     _support.generate_coach_plan = generate_coach_plan
+    _support.answer_coach_question = answer_coach_question
     _support.import_garmin_export = import_garmin_export
     _support.sync_garmin_connect = sync_garmin_connect
     _support.recalculate_workspace = recalculate_workspace
     _support._runtime.build_workspace_status = build_workspace_status
     _support._runtime.prepare_coach_questions = prepare_coach_questions
+    _support._runtime.save_coach_profile = save_coach_profile
     _support._runtime.generate_coach_plan = generate_coach_plan
+    _support._runtime.answer_coach_question = answer_coach_question
     _support._runtime.import_garmin_export = import_garmin_export
     _support._runtime.sync_garmin_connect = sync_garmin_connect
     _support._runtime.recalculate_workspace = recalculate_workspace
@@ -57,9 +63,19 @@ def prepare_coach_questions(*args, **kwargs):
     return _PREPARE_COACH_QUESTIONS_IMPL(*args, **kwargs)
 
 
+def save_coach_profile(*args, **kwargs):
+    _sync_support_globals()
+    return _SAVE_COACH_PROFILE_IMPL(*args, **kwargs)
+
+
 def generate_coach_plan(*args, **kwargs):
     _sync_support_globals()
     return _GENERATE_COACH_PLAN_IMPL(*args, **kwargs)
+
+
+def answer_coach_question(*args, **kwargs):
+    _sync_support_globals()
+    return _ANSWER_COACH_QUESTION_IMPL(*args, **kwargs)
 
 
 def import_garmin_export(*args, **kwargs):

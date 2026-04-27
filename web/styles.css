@@ -1143,6 +1143,73 @@ textarea:focus {
   font-weight: 700;
 }
 
+.coach-output {
+  display: grid;
+  gap: 12px;
+}
+
+.coach-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.coach-output-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.coach-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.coach-info-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(138, 180, 255, 0.24);
+  background: rgba(138, 180, 255, 0.1);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: help;
+}
+
+.coach-info-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 3;
+  min-width: min(320px, 80vw);
+  max-width: min(420px, 84vw);
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 94%, #08101b 6%);
+  box-shadow: 0 18px 40px rgba(4, 8, 15, 0.3);
+  color: var(--muted);
+  display: none;
+  gap: 8px;
+  line-height: 1.5;
+}
+
+.coach-info-panel p {
+  margin: 0;
+}
+
+.coach-info:hover .coach-info-panel,
+.coach-info:focus-within .coach-info-panel {
+  display: grid;
+}
+
 .summary-box {
   white-space: pre-wrap;
   line-height: 1.65;

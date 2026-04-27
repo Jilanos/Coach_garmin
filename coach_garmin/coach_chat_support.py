@@ -168,11 +168,20 @@ class CoachChatSession:
                     "target_timeline_weeks",
                     "available_days_per_week",
                     "constraints",
+                    "blessure",
+                    "fatigue",
+                    "maladie",
+                    "emploi_du_temps",
+                    "disponibilite",
+                    "temperature",
+                    "deplacements",
+                    "autres_sports",
                     "current_weekly_distance_km",
                     "stated_benchmarks",
                 )
                 if key in goal_profile
             },
+            "structured_constraints": CoachChatSession._structured_constraints(goal_profile),
             "metrics": compact_metrics,
             "history": compact_history,
             "analysis": compact_analysis,
@@ -490,12 +499,62 @@ class CoachChatSession:
             "available_days_per_week",
             "constraints",
             "current_weekly_distance_km",
+            "blessure",
+            "fatigue",
+            "maladie",
+            "emploi_du_temps",
+            "disponibilite",
+            "temperature",
+            "deplacements",
+            "autres_sports",
+            "targeted_question",
         }
         merged = dict(new_goal_profile)
         for key in carryable_keys:
             if key not in merged and existing_goal.get(key) not in (None, ""):
                 merged[key] = existing_goal[key]
         return merged
+
+    @staticmethod
+    def _structured_constraints(goal_profile: dict[str, Any]) -> dict[str, str]:
+        fields = {
+            "blessure": goal_profile.get("blessure"),
+            "fatigue": goal_profile.get("fatigue"),
+            "maladie": goal_profile.get("maladie"),
+            "emploi_du_temps": goal_profile.get("emploi_du_temps"),
+            "disponibilite": goal_profile.get("disponibilite"),
+            "temperature": goal_profile.get("temperature"),
+            "deplacements": goal_profile.get("deplacements"),
+            "autres_sports": goal_profile.get("autres_sports"),
+        }
+        output: dict[str, str] = {}
+        for key, value in fields.items():
+            text = str(value).strip() if value not in (None, "") else ""
+            if text:
+                output[key] = text
+        return output
+
+    @staticmethod
+    def _compose_constraints(goal_profile: dict[str, Any]) -> str:
+        legacy = str(goal_profile.get("constraints", "") or "").strip()
+        labels = {
+            "blessure": "Blessure",
+            "fatigue": "Fatigue",
+            "maladie": "Maladie",
+            "emploi_du_temps": "Emploi du temps",
+            "disponibilite": "Disponibilité",
+            "temperature": "Température",
+            "deplacements": "Déplacements",
+            "autres_sports": "Autres sports",
+        }
+        structured = [
+            f"{labels[key]}: {value}"
+            for key, value in CoachChatSession._structured_constraints(goal_profile).items()
+            if key in labels
+        ]
+        if legacy and legacy.lower() not in " | ".join(structured).lower():
+            structured.append(f"Contrainte libre: {legacy}")
+        return " | ".join(structured)
 
     @staticmethod
     def _clarification_questions(goal_profile: dict[str, Any], history_context: dict[str, Any]) -> list[tuple[str, str, Callable[[str], Any]]]:
